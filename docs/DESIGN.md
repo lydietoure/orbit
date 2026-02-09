@@ -1,10 +1,5 @@
 # Orbit — Design Document
 
-> **Status:** Draft  
-> **Author:** Lydie Toure  
-> **Last updated:** 2026-02-09
-
----
 
 ## 1. Problem
 
@@ -350,6 +345,7 @@ Design principles:
 
 - **`orbit.core`** — domain models, storage, query logic. No CLI dependency.
 - **`orbit.cli`** — thin CLI layer (likely Typer) that calls into core.
+- **`orbit.tui`** — Textual-based TUI for browsing and interacting with orbit data.
 - **`orbit.mcp`** — MCP server that calls into core (added later).
 - **`orbit.integrations`** — adapters for Git, GitHub, ADO.
 
@@ -363,6 +359,7 @@ Design principles:
 | MCP server | `mcp` SDK | Standard protocol for LLM tool use |
 | DB layer | `sqlite-utils` | Thin wrapper over SQLite — handles table creation, inserts, queries without heavy ORM magic. Lets you drop to raw SQL when needed. Single dependency, well-maintained. |
 | Git interaction | `subprocess` / `gitpython` | Read branch names, log, etc. |
+| TUI framework | Textual | Modern Python TUI by the Rich team. Async, beautiful, well-maintained. |
 | Platform APIs | `httpx` (later) | Async-ready HTTP for GitHub/ADO REST APIs. Not needed until external context fetching. |
 
 ## 10. Milestones
@@ -404,14 +401,31 @@ Design principles:
 - [ ] Lazy daily health check (auto-runs on any command if >24h since last check)
 - [ ] `--json` output flag on list/show/search commands
 
-### M3 — Export & summarize
-> *"I can generate reports and export snapshots of my work."*
+### M3 — Export, summarize & browse
+> *"I can generate reports, export snapshots, and browse my work in a TUI."*
 
 - [ ] `orbit work export <id>` — dated YAML snapshot
 - [ ] `orbit summary --since 2w` — summarize recent work
 - [ ] `orbit summary --tag project:payments` — scoped summaries
+- [ ] `orbit tui` — read-only TUI browser (Textual)
+  - [ ] Work entry list view (navigate, filter by status/tag)
+  - [ ] Work entry detail view (description, artifacts, logs, diary)
+  - [ ] Log entry timeline view
+  - [ ] Keyboard shortcuts for navigation (j/k, enter, esc, q)
 
-### M4 — MCP Server
+### M4 — Interactive TUI
+> *"I can manage my work entirely from the TUI without dropping to the CLI."*
+
+- [ ] Quick actions from TUI:
+  - [ ] Add log entry (inline input)
+  - [ ] Change status (dropdown/menu)
+  - [ ] Select/forget work entry
+  - [ ] Mark "worked today"
+- [ ] Create new work entry from TUI
+- [ ] Link artifacts from TUI (file picker or paste URL)
+- [ ] Command palette (`Ctrl+P` or `/`) for quick actions
+
+### M5 — MCP Server
 > *"An LLM can answer questions about my work history."*
 
 - [ ] MCP server exposing orbit data
