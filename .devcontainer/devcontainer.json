@@ -11,7 +11,7 @@
 		"ghcr.io/devcontainers-extra/features/actionlint:1": {},
 		"ghcr.io/devcontainers-extra/features/ruff:2": {},
 		"ghcr.io/warrenbuckley/codespace-features/sqlite:1": {},
-		"ghcr.io/va-h/devcontainers-features/uv:1": {}
+		"ghcr.io/devcontainers-extra/features/uv:1": {}
 	},
 	
 	// Configure tool-specific properties.
