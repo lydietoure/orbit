@@ -1,0 +1,18 @@
+[project]
+name = "orbit"
+description = "A personal developer work tracker that unifies your issues, pull requests, local projects, notes, and more."
+readme = "README.md"
+dynamic = ["version"]
+authors = [{ name = "Lydie Toure", email = "lammtoure@hotmail.com" }]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+orbit = "orbit:main"
+
+[tool.hatch.version]
+path = "src/orbit/__init__.py"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
