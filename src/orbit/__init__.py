@@ -1,4 +1,6 @@
-__VERSION__ = "0.1.0"
+__version__ = "0.1.0"
+__APPLICATION_NAME__ = "orbit"
 
-def main() -> None:
-    print("Hello from orbit!")
+from orbit.__main__ import main
+
+__all__ = ["__version__", "__APPLICATION_NAME__", "main"]
