@@ -115,7 +115,18 @@ Work Entry: Add caching to payment flow (w-3a7f)
 
 Each date is a day you can look up in your Obsidian daily note (or wherever your journal lives). Orbit tells you *what kind of activity* happened, but the prose lives in your notes.
 
-**Projects are tags.** A project is not a separate entity — it's a tag convention: `project:<name>` (e.g., `project:payments`, `project:orbit`). This keeps the model flat and flexible: a WorkEntry can belong to multiple projects, projects can span repos, and there's no extra CRUD to manage.
+### Tag conventions
+
+Tags are free-form, but orbit recognizes two prefixes with special meaning:
+
+| Prefix | Meaning | Cardinality | Example |
+|--------|---------|-------------|----------|
+| `project:*` | Which project this belongs to | Multiple allowed | `project:payments`, `project:orbit` |
+| `owner:*` | Context that owns this work | Single | `owner:work`, `owner:personal` |
+
+In the database, these are just tags — no special treatment. The application layer provides ergonomic commands for managing them (see CLI Design).
+
+This keeps the model flat and flexible: a WorkEntry can belong to multiple projects, projects can span repos, and there's no extra CRUD to manage.
 
 Relationships:
 ```
@@ -134,7 +145,7 @@ WorkEntry: "Add caching to payment flow"
   │    lookup path to reduce p99 latency. Spans payments-service
   │    and the shared client library."
   ├─ scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
-  ├─ tags: [project:payments, caching, perf]
+  ├─ tags: [owner:work, project:payments, caching, perf]
   ├─ artifacts:
   │    ├─ branch: payments-repo/feature/add-cache
   │    ├─ branch: shared-lib/cache-improvements
@@ -205,6 +216,7 @@ status: active
 created: 2026-01-14
 scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
 tags:
+  - owner:work
   - project:payments
   - caching
   - perf
@@ -250,14 +262,25 @@ The export is a point-in-time snapshot (always dated). Future possibility: versi
 orbit init                                  # Initialize orbit (create ~/.orbit/)
 
 orbit work new <title>                      # Create a new work entry (status: new)
-orbit work list                             # List work entries (filterable by tag, date, status)
-orbit work list --tag project:payments      # Filter by project
+orbit work list                             # List work entries (filterable)
+orbit work list --project payments          # Filter by project
+orbit work list --owner work                # Filter by owner
+orbit work list --tag caching               # Filter by any tag
 orbit work show <id>                        # Show a work entry and all linked artifacts/notes
 orbit work show                             # Show selected work entry (if any)
 orbit work close <id>                       # Complete a work entry (status: completed)
 orbit work close <id> --abandon --reason .. # Abandon with reason
 orbit work status <id> <status>             # Set status explicitly (--reason optional)
-orbit work tag <id> <tag>                   # Add a tag (e.g., project:payments, caching)
+orbit work tag <id> <tag>                   # Add a tag (e.g., caching, perf)
+orbit work tag <id> <tag> --remove          # Remove a tag
+
+orbit work project add <name>               # Add project:* tag (multiple allowed)
+orbit work project remove <name>            # Remove project:* tag
+orbit work project list                     # List projects for selected/given entry
+
+orbit work owner <name>                     # Set owner:* tag (replaces any existing)
+orbit work owner --clear                    # Remove owner tag
+
 orbit work search <query>                   # Full-text search across work entries and notes
 orbit work select <id>                      # Set as the selected (current) work entry
 orbit work forget                           # Clear the selected work entry
@@ -289,7 +312,9 @@ orbit link <id> --file <path>               # Link any file or folder
 orbit link --branch <name>                  # Link to selected work entry (id optional)
 
 orbit summary --since 2w                    # Generate a summary of recent work
-orbit summary --tag project:payments        # Summary scoped to a project
+orbit summary --project payments            # Summary scoped to a project
+orbit summary --owner work                  # Summary scoped to an owner
+orbit summary --tag caching                 # Summary filtered by any tag
 
 orbit status                                # Quick overview: active work entries, selected entry, recent notes
 orbit doctor                                # Check for stale references (moved/deleted files)
@@ -299,7 +324,7 @@ Design principles:
 - **Noun-first** command pattern: `orbit <noun> <verb>` (like `git`, `docker`)
 - `orbit work` is the primary command group — `work` is short for `WorkEntry`
 - `orbit link` is a top-level command (not `orbit work link`) since linking is a frequent action
-- Projects are just tags: `--tag project:payments` instead of a separate `orbit project` command group
+- Projects and owners are tags with conventions (`project:*`, `owner:*`) — ergonomic commands provided
 - Interactive prompts where helpful, but everything scriptable with flags
 - Output is human-readable by default, `--json` flag for machine consumption
 - When run inside a git repo, `orbit link` can auto-detect the current branch as a convenience (nice-to-have, not critical)
@@ -398,12 +423,14 @@ This section outlines the key technical requirements without prescribing specifi
 - [ ] `orbit work log <message>` / `orbit work log list`
 - [ ] `orbit work today` / `orbit work diary`
 - [ ] Auto-recording of work days (on link, log, note actions)
+- [ ] `orbit work project add/remove/list` — manage project tags
+- [ ] `orbit work owner` — set/clear owner tag
 - [ ] `orbit status` — quick overview (selected entry, active entries, recent activity)
 
 ### M2 — Find & filter
 > *"I can search across everything and keep my data healthy."*
 
-- [ ] `orbit work list` with filtering: `--tag`, `--status`, `--since`, `--until`
+- [ ] `orbit work list` with filtering: `--project`, `--owner`, `--tag`, `--status`, `--since`, `--until`
 - [ ] `orbit work search <query>` — full-text search across work entries, log entries, and note content
 - [ ] `orbit doctor` — detect stale references (moved/deleted files)
 - [ ] Lazy daily health check (auto-runs on any command if >24h since last check)
@@ -414,7 +441,7 @@ This section outlines the key technical requirements without prescribing specifi
 
 - [ ] `orbit work export <id>` — dated YAML snapshot
 - [ ] `orbit summary --since 2w` — summarize recent work
-- [ ] `orbit summary --tag project:payments` — scoped summaries
+- [ ] `orbit summary --project payments` / `--owner work` — scoped summaries
 - [ ] `orbit tui` — read-only TUI browser
   - [ ] Work entry list view (navigate, filter by status/tag)
   - [ ] Work entry detail view (description, artifacts, logs, diary)
