@@ -145,7 +145,7 @@ WorkEntry: "Add caching to payment flow"
   │    lookup path to reduce p99 latency. Spans payments-service
   │    and the shared client library."
   ├─ scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
-  ├─ tags: [project:payments, caching, perf]
+  ├─ tags: [owner:work, project:payments, caching, perf]
   ├─ artifacts:
   │    ├─ branch: payments-repo/feature/add-cache
   │    ├─ branch: shared-lib/cache-improvements
@@ -444,7 +444,7 @@ This section outlines the key technical requirements without prescribing specifi
 
 - [ ] `orbit work export <id>` — dated YAML snapshot
 - [ ] `orbit summary --since 2w` — summarize recent work
-- [ ] `orbit summary --tag project:payments` — scoped summaries
+- [ ] `orbit summary --project payments` / `--owner work` — scoped summaries
 - [ ] `orbit tui` — read-only TUI browser
   - [ ] Work entry list view (navigate, filter by status/tag)
   - [ ] Work entry detail view (description, artifacts, logs, diary)
