@@ -48,7 +48,7 @@ Existing tools (ADO boards, GitHub Projects, Notion, Obsidian) each cover a slic
 | Concept | Description |
 |---|---|
 | **WorkEntry** | The central unit. Represents a piece of work (feature, bug, spike, learning). Has a title, **description**, status (with reason), optional **scratchpad** path, tags, timestamps. The description is stored in the DB so the work entry remains self-explanatory even if all linked references become stale. |
-| **Artifact** | Something linked to a WorkEntry. Types: `branch`, `pr`, `workitem`, `repo`, `file`, `url`, `custom`. |
+| **Artifact** | Something linked to a WorkEntry: a git branch, a PR, an ADO item, a file path, a URL, a repo path. |
 | **Note** | A dated reference to a markdown file the user manages. Orbit does not own note storage — the user decides where notes live (Obsidian vault, a project folder, anywhere). Orbit tracks the path and the date. Notes may contain rich markdown (code blocks, images, links). |
 | **LogEntry** | A timestamped one-liner attached to a WorkEntry, stored directly in the DB. Captures quick observations in the moment (from the terminal) without switching to a notes app. Lightweight complement to Notes — useful for timeline reconstruction, MCP search, and memory. |
 | **WorkDay** | A date on which you worked on a WorkEntry. Acts as an index into your daily notes — orbit doesn't copy content from your journal, it just knows *which days* you worked on something, so you can go back to those daily notes yourself. |
@@ -145,7 +145,7 @@ WorkEntry: "Add caching to payment flow"
   │    lookup path to reduce p99 latency. Spans payments-service
   │    and the shared client library."
   ├─ scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
-  ├─ tags: [owner:work, project:payments, caching, perf]
+  ├─ tags: [project:payments, caching, perf]
   ├─ artifacts:
   │    ├─ branch: payments-repo/feature/add-cache
   │    ├─ branch: shared-lib/cache-improvements
@@ -444,7 +444,7 @@ This section outlines the key technical requirements without prescribing specifi
 
 - [ ] `orbit work export <id>` — dated YAML snapshot
 - [ ] `orbit summary --since 2w` — summarize recent work
-- [ ] `orbit summary --project payments` / `--owner work` — scoped summaries
+- [ ] `orbit summary --tag project:payments` — scoped summaries
 - [ ] `orbit tui` — read-only TUI browser
   - [ ] Work entry list view (navigate, filter by status/tag)
   - [ ] Work entry detail view (description, artifacts, logs, diary)
