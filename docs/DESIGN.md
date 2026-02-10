@@ -172,7 +172,7 @@ WorkEntry: "Add caching to payment flow"
 ```
 ~/.orbit/
   orbit.db          # single source of truth for all structured data
-  config.toml       # user preferences (default editor, etc.)
+  config.yaml       # user preferences (default editor, etc.)
 ```
 
 - `orbit.db` stores WorkEntries, Artifacts, Notes (as path references), Tags, and all relationships.

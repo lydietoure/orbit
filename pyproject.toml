@@ -4,13 +4,14 @@ description = "A personal developer work tracker that unifies your issues, pull 
 readme = "README.md"
 dynamic = ["version"]
 authors = [{ name = "Lydie Toure", email = "lammtoure@hotmail.com" }]
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "platformdirs>=4.5.1",
     "pydantic>=2.12.5",
     "sqlite-utils>=3.39",
     "typer-exts @ git+https://github.com/lydietoure/typer_exts.git",
     "typer>=0.21.1",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
@@ -25,3 +26,10 @@ allow-direct-references = true
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.15.0",
+]
