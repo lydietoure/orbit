@@ -30,18 +30,16 @@ def _load_schema() -> str:
     return files("orbit.core").joinpath("schema.sql").read_text()
 
 
-def initialise_database() -> None:
+def initialise_database() -> Database:
     """Initialize the database schema. Idempotent."""
     db = get_database()
     schema = _load_schema()
     db.executescript(schema)
+    
+    return db
 
-
-def reset_database() -> None:
-    """Delete and reinitialize the database.
-
-    Removes orbit.db and any WAL/SHM files, then recreates the schema.
-    """
+def clear_database() -> None:
+    """Clear and delete the database file."""
     db_path = get_database_path()
 
     # Delete database and associated WAL files
@@ -49,7 +47,12 @@ def reset_database() -> None:
         path = db_path.parent / f"{db_path.name}{suffix}"
         if path.exists():
             path.unlink()
+    
 
-    # Reinitialize
+def reset_database() -> None:
+    """Delete and reinitialize the database.
+
+    Removes orbit.db and any WAL/SHM files, then recreates the schema.
+    """
+    clear_database()
     initialise_database()
-
