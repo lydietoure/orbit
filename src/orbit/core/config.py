@@ -1,12 +1,13 @@
 """Handles loading, saving, and managing the high-level application configuration for orbit."""
 
-import platformdirs
 import yaml
+import shutil
+import platformdirs
+
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from orbit import __APPLICATION_NAME__ as APP_NAME
-
 
 
 class DefaultsConfig(BaseModel):
@@ -62,5 +63,12 @@ def save_configuration(config: Configuration) -> None:
     return
     
     
-    
+def reset_application() -> None:
+    """Delete the entire application directory (~/.orbit/).
+
+    This removes all data: database, config, everything.
+    """
+    app_dir = get_application_directory()
+    if app_dir.exists():
+        shutil.rmtree(app_dir)
     
