@@ -1,13 +1,30 @@
 """Database operations."""
 
-import shutil
 from importlib.resources import files
 from pathlib import Path
-
+from enum import StrEnum
 from sqlite_utils import Database
 
 from orbit.core.config import get_application_directory
 
+DATABASE_FILENAME = "orbit.db"
+
+class DatabaseTables(StrEnum):
+    """Names of the database tables."""
+    
+    WORK_ENTRIES = "work_entries"
+    TAGS = "tags"
+    ARTIFACTS = "artifacts"
+    NOTES = "notes"
+    LOG_ENTRIES = "log_entries"
+    WORK_DAYS = "work_days"
+    
+    # Application state: singleton
+    STATE = "state"
+    
+    # Join table for many-to-many relationship between WorkEntries and Tags
+    WORK_ENTRY_TAGS = "work_entry_tags"
+    
 
 def get_database_path() -> Path:
     """Get the path to the database file."""
@@ -16,9 +33,15 @@ def get_database_path() -> Path:
     return db_path
 
 
-def get_database() -> Database:
+def get_database(not_exist_ok: bool = False) -> Database:
     """Get the database connection."""
-    db = Database(get_database_path())
+    
+    path = get_database_path()
+    if not not_exist_ok and not path.exists():
+        raise FileNotFoundError(f"Database file not found at {path}")
+    
+    # TODO: When adding logging, consider a tracer for database operations.
+    db = Database(path)
 
     db.execute("PRAGMA foreign_keys = ON;")
     db.execute("PRAGMA journal_mode = WAL;")
@@ -32,7 +55,8 @@ def _load_schema() -> str:
 
 def initialise_database() -> Database:
     """Initialize the database schema. Idempotent."""
-    db = get_database()
+    # TODO: Catch sqlite3.OperationalError and raise custom exception
+    db = get_database(not_exist_ok=True)
     schema = _load_schema()
     db.executescript(schema)
     
