@@ -29,7 +29,7 @@ class DatabaseTables(StrEnum):
 def get_database_path() -> Path:
     """Get the path to the database file."""
     app_dir = get_application_directory()
-    db_path = app_dir / "orbit.db"
+    db_path = app_dir / DATABASE_FILENAME
     return db_path
 
 

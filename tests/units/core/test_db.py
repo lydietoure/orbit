@@ -11,7 +11,7 @@ from orbit.core.db import (
     get_database,
     initialise_database,
     DatabaseTables,
-    DATABASE_FILENAME
+
 )
 
 from tests.units.common import FixtureFunctionParams
@@ -61,8 +61,7 @@ def test_get_database(
     mocker.patch.object(Path, "exists", return_value=path_exists)
     MOCKED_DATABASE.execute = lambda val: None  # No-op 
     
-    # mocker.patch("orbit.core.db.Database", return_value=expected_output)
-    
+
     with expectation:
         db = get_database(not_exist_ok=not_exist_ok)
         assert db == expected_output

@@ -1,5 +1,5 @@
 import pytest
-from pathlib import Path
+
 
 @pytest.fixture(autouse=True)
 def application_directory(mocker, tmp_path):

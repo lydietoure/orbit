@@ -60,6 +60,5 @@ def save_configuration(config: Configuration) -> None:
     with open(cfg_path, "w") as f:
         yaml.safe_dump(model_dict, f)
         
-    return
-    
-    
+
+
