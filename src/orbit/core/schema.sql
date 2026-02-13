@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS work_entry_tags (
 );
 
 CREATE INDEX IF NOT EXISTS idx_work_entry_tags_tag_id ON work_entry_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_work_entry_tags_work_entry_id ON work_entry_tags(work_entry_id);
 
 -- Artifacts: linked references (branches, PRs, repos, files, URLs, etc.)
 CREATE TABLE IF NOT EXISTS artifacts (

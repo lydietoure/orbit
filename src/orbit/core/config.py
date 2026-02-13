@@ -1,7 +1,7 @@
 """Handles loading, saving, and managing the high-level application configuration for orbit."""
 
 import yaml
-import shutil
+
 import platformdirs
 
 from pathlib import Path
