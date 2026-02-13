@@ -59,8 +59,11 @@ def setup_logging(level: int = logging.INFO, enable_file_logging: bool = False, 
     """
     global _logging_configured
     
-    if _logging_configured and not reset:
-        raise OrbitError("Unauthorised attempt to set logging anew.")
+    if _logging_configured:
+        if not reset:
+            raise OrbitError("Unauthorised attempt to set logging anew.")
+        else:
+            reset_logging()
     
     console_handler = RichHandler(
         markup = True,
@@ -97,7 +100,7 @@ def enable_file_logging():
     if any(isinstance(h, logging.FileHandler) for h in root.handlers):
         raise OrbitError("File logging is already enabled.")
        
-    debug_file_handler = logging.FileHandler("orbit.log")
+    debug_file_handler = logging.FileHandler(get_file_log_path())
     debug_file_handler.setLevel(logging.DEBUG)
     debug_file_handler.setFormatter(logging.Formatter(
         "%(asctime)s: %(name)s | %(levelname)-8s: %(message)s"
