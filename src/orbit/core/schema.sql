@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS work_entries (
     id              TEXT PRIMARY KEY,
     title           TEXT NOT NULL,
     description     TEXT,
-    status          TEXT NOT NULL DEFAULT 'new',
+    status          TEXT NOT NULL DEFAULT 'new' COLLATE NOCASE,
     status_reason   TEXT,
     scratchpad_path TEXT,
     created_at      TEXT NOT NULL,
