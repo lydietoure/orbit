@@ -53,7 +53,7 @@ def _load_schema() -> str:
     return files("orbit.core").joinpath("schema.sql").read_text()
 
 
-def initialise_database() -> Database:
+def initialize_database() -> Database:
     """Initialize the database schema. Idempotent."""
     # TODO: Catch sqlite3.OperationalError and raise custom exception
     db = get_database(not_exist_ok=True)
