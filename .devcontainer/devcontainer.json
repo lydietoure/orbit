@@ -9,8 +9,8 @@
 	"features": {
 		"ghcr.io/devcontainers-extra/features/act:1": {},
 		"ghcr.io/devcontainers-extra/features/actionlint:1": {},
-		"ghcr.io/devcontainers-extra/features/ruff:2": {},
-		"ghcr.io/devcontainers-extra/features/uv:1": {}
+		"ghcr.io/devcontainers-extra/features/uv:1": {},
+		"ghcr.io/devcontainers-extra/features/go-task:1": {}
 	},
 	
 	// Configure tool-specific properties.
@@ -24,7 +24,7 @@
   	},
 	
 	// Use 'postCreateCommand' to run commands after the container is created.
-  	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y sqlite3 libsqlite3-dev && uv sync"
+  	"postCreateCommand": "bash scripts/setup_devcontainer.sh"
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],

@@ -3,4 +3,8 @@ __APPLICATION_NAME__ = "orbit"
 
 from orbit.__main__ import main
 
-__all__ = ["__version__", "__APPLICATION_NAME__", "main"]
+__all__ = [
+    "__version__", 
+    "__APPLICATION_NAME__", 
+    "main"
+]
