@@ -61,7 +61,7 @@ def setup_logging(level: int = logging.INFO, log_to_file: bool = False, reset: b
     
     if _logging_configured:
         if not reset:
-            raise OrbitError("Unauthorised attempt to set logging anew.")
+            raise OrbitError("Unauthorized attempt to set logging anew.")
         else:
             reset_logging()
     
