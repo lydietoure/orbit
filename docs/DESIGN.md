@@ -47,11 +47,12 @@ Existing tools (ADO boards, GitHub Projects, Notion, Obsidian) each cover a slic
 
 | Concept | Description |
 |---|---|
-| **WorkEntry** | The central unit. Represents a piece of work (feature, bug, spike, learning). Has a title, **description**, status (with reason), tags, timestamps. The description is stored in the DB so the work entry remains self-explanatory even if all linked references become stale. |
-| **Artifact** | Something linked to a WorkEntry: a git branch, a PR, an ADO item, a file path, a URL, a repo path. |
+| **WorkEntry** | The central unit. Represents a piece of work (feature, bug, spike, learning). Has a title, **description**, status (with reason), optional **scratchpad** path, tags, timestamps. The description is stored in the DB so the work entry remains self-explanatory even if all linked references become stale. |
+| **Artifact** | Something linked to a WorkEntry. Types: `branch`, `pr`, `workitem`, `repo`, `file`, `url`, `custom`. |
 | **Note** | A dated reference to a markdown file the user manages. Orbit does not own note storage — the user decides where notes live (Obsidian vault, a project folder, anywhere). Orbit tracks the path and the date. Notes may contain rich markdown (code blocks, images, links). |
 | **LogEntry** | A timestamped one-liner attached to a WorkEntry, stored directly in the DB. Captures quick observations in the moment (from the terminal) without switching to a notes app. Lightweight complement to Notes — useful for timeline reconstruction, MCP search, and memory. |
 | **WorkDay** | A date on which you worked on a WorkEntry. Acts as an index into your daily notes — orbit doesn't copy content from your journal, it just knows *which days* you worked on something, so you can go back to those daily notes yourself. |
+| **Scratchpad** | An optional folder path where you do experimental work for this entry (test files, scratch code, prototypes). Unlike artifacts which are references, the scratchpad is where you actively work. One per WorkEntry. |
 | **Tag** | A free-form label for cross-cutting concerns (e.g., `caching`, `perf`, `debugging`). |
 
 ### Status lifecycle
@@ -114,7 +115,18 @@ Work Entry: Add caching to payment flow (w-3a7f)
 
 Each date is a day you can look up in your Obsidian daily note (or wherever your journal lives). Orbit tells you *what kind of activity* happened, but the prose lives in your notes.
 
-**Projects are tags.** A project is not a separate entity — it's a tag convention: `project:<name>` (e.g., `project:payments`, `project:orbit`). This keeps the model flat and flexible: a WorkEntry can belong to multiple projects, projects can span repos, and there's no extra CRUD to manage.
+### Tag conventions
+
+Tags are free-form, but orbit recognizes two prefixes with special meaning:
+
+| Prefix | Meaning | Cardinality | Example |
+|--------|---------|-------------|----------|
+| `project:*` | Which project this belongs to | Multiple allowed | `project:payments`, `project:orbit` |
+| `owner:*` | Context that owns this work | Single | `owner:work`, `owner:personal` |
+
+In the database, these are just tags — no special treatment. The application layer provides ergonomic commands for managing them (see CLI Design).
+
+This keeps the model flat and flexible: a WorkEntry can belong to multiple projects, projects can span repos, and there's no extra CRUD to manage.
 
 Relationships:
 ```
@@ -132,7 +144,8 @@ WorkEntry: "Add caching to payment flow"
   ├─ description: "Introduce Redis caching layer for the payment
   │    lookup path to reduce p99 latency. Spans payments-service
   │    and the shared client library."
-  ├─ tags: [project:payments, caching, perf]
+  ├─ scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
+  ├─ tags: [owner:work, project:payments, caching, perf]
   ├─ artifacts:
   │    ├─ branch: payments-repo/feature/add-cache
   │    ├─ branch: shared-lib/cache-improvements
@@ -154,7 +167,7 @@ WorkEntry: "Add caching to payment flow"
 
 ## 5. Data Storage
 
-**Approach: a single global SQLite database. Orbit tracks paths; it does not own files.**
+**Approach: a single global local database. Orbit tracks paths; it does not own files.**
 
 ```
 ~/.orbit/
@@ -169,7 +182,7 @@ WorkEntry: "Add caching to payment flow"
 
 Advantages:
 - Zero infrastructure — no server, no Docker, no cloud
-- SQLite is fast, reliable, and queryable with `sqlite-utils`
+- A local relational database is fast, reliable, and portable
 - Notes stay exactly where you already put them
 - No per-repo `.orbit/` clutter — your repos stay clean
 - One DB = easy to query across all work entries, all projects
@@ -201,7 +214,9 @@ description: |
   client library.
 status: active
 created: 2026-01-14
+scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
 tags:
+  - owner:work
   - project:payments
   - caching
   - perf
@@ -247,14 +262,25 @@ The export is a point-in-time snapshot (always dated). Future possibility: versi
 orbit init                                  # Initialize orbit (create ~/.orbit/)
 
 orbit work new <title>                      # Create a new work entry (status: new)
-orbit work list                             # List work entries (filterable by tag, date, status)
-orbit work list --tag project:payments      # Filter by project
+orbit work list                             # List work entries (filterable)
+orbit work list --project payments          # Filter by project
+orbit work list --owner work                # Filter by owner
+orbit work list --tag caching               # Filter by any tag
 orbit work show <id>                        # Show a work entry and all linked artifacts/notes
 orbit work show                             # Show selected work entry (if any)
 orbit work close <id>                       # Complete a work entry (status: completed)
 orbit work close <id> --abandon --reason .. # Abandon with reason
 orbit work status <id> <status>             # Set status explicitly (--reason optional)
-orbit work tag <id> <tag>                   # Add a tag (e.g., project:payments, caching)
+orbit work tag <id> <tag>                   # Add a tag (e.g., caching, perf)
+orbit work tag <id> <tag> --remove          # Remove a tag
+
+orbit work project add <name>               # Add project:* tag (multiple allowed)
+orbit work project remove <name>            # Remove project:* tag
+orbit work project list                     # List projects for selected/given entry
+
+orbit work owner <name>                     # Set owner:* tag (replaces any existing)
+orbit work owner --clear                    # Remove owner tag
+
 orbit work search <query>                   # Full-text search across work entries and notes
 orbit work select <id>                      # Set as the selected (current) work entry
 orbit work forget                           # Clear the selected work entry
@@ -273,15 +299,25 @@ orbit work diary                             # Show work days for the selected e
 orbit work diary <id>                        # Show work days for a specific entry
 orbit work diary --since 2w                  # Filter by date range
 
+orbit work scratchpad <path>                 # Set scratchpad folder for selected entry
+orbit work scratchpad <id> <path>            # Set scratchpad for a specific entry
+orbit work scratchpad --clear                # Remove scratchpad from selected entry
+orbit work scratchpad --open                 # Open scratchpad folder in file explorer
+
 orbit link <id> --branch <name>             # Link a git branch
+orbit link <id> --pr <url>                  # Link a pull request
+orbit link <id> --workitem <url>            # Link an issue or work item (ADO, GitHub)
 orbit link <id> --repo <path>               # Link a local repo
-orbit link <id> --note <path> [--date ...]  # Link an existing note (md file or folder)
-orbit link <id> --url <url>                 # Link a PR, issue, or any URL
 orbit link <id> --file <path>               # Link any file or folder
+orbit link <id> --url <url>                 # Link any other URL
+orbit link <id> --custom <value>            # Link freeform reference
+orbit link <id> --note <path> [--date ...]  # Link an existing note (md file or folder)
 orbit link --branch <name>                  # Link to selected work entry (id optional)
 
 orbit summary --since 2w                    # Generate a summary of recent work
-orbit summary --tag project:payments        # Summary scoped to a project
+orbit summary --project payments            # Summary scoped to a project
+orbit summary --owner work                  # Summary scoped to an owner
+orbit summary --tag caching                 # Summary filtered by any tag
 
 orbit status                                # Quick overview: active work entries, selected entry, recent notes
 orbit doctor                                # Check for stale references (moved/deleted files)
@@ -291,7 +327,7 @@ Design principles:
 - **Noun-first** command pattern: `orbit <noun> <verb>` (like `git`, `docker`)
 - `orbit work` is the primary command group — `work` is short for `WorkEntry`
 - `orbit link` is a top-level command (not `orbit work link`) since linking is a frequent action
-- Projects are just tags: `--tag project:payments` instead of a separate `orbit project` command group
+- Projects and owners are tags with conventions (`project:*`, `owner:*`) — ergonomic commands provided
 - Interactive prompts where helpful, but everything scriptable with flags
 - Output is human-readable by default, `--json` flag for machine consumption
 - When run inside a git repo, `orbit link` can auto-detect the current branch as a convenience (nice-to-have, not critical)
@@ -318,49 +354,48 @@ Design principles:
 
 ```
 ┌──────────────┐     ┌──────────────┐
-│   CLI (typer) │     │  MCP Server  │
+│     CLI      │     │  MCP Server  │
 └──────┬───────┘     └──────┬───────┘
        │                    │
        └────────┬───────────┘
                 │
-        ┌───────▼────────┐
+        ┌───────▼─────────┐
         │   Core Library  │
-        │  (orbit.core)   │
-        ├────────────────┤
+        ├─────────────────┤
         │  WorkEntry CRUD │
         │  Artifact links │
         │  Note refs      │
         │  Tag system     │
         │  Search/Query   │
         │  Summary gen    │
-        └───────┬────────┘
+        └───────┬─────────┘
                 │
      ┌──────────┼──────────┐
      │          │          │
-┌────▼───┐ ┌───▼────┐ ┌───▼────┐
-│ SQLite │ │  Git   │ │ GitHub │
-│   DB   │ │ Client │ │ / ADO  │
-└────────┘ └────────┘ └────────┘
+┌────▼───┐ ┌────▼────┐ ┌───▼────┐
+│ Local  │ │  Git    │ │ GitHub │
+│   DB   │ │ Client  │ │ / ADO  │
+└────────┘ └─────────┘ └────────┘
 ```
 
-- **`orbit.core`** — domain models, storage, query logic. No CLI dependency.
-- **`orbit.cli`** — thin CLI layer (likely Typer) that calls into core.
-- **`orbit.tui`** — Textual-based TUI for browsing and interacting with orbit data.
-- **`orbit.mcp`** — MCP server that calls into core (added later).
-- **`orbit.integrations`** — adapters for Git, GitHub, ADO.
+- **Core Library** — domain models, storage, query logic. No CLI dependency.
+- **CLI** — thin CLI layer that calls into core.
+- **TUI** — terminal UI for browsing and interacting with orbit data.
+- **MCP Server** — MCP server that calls into core (added later).
+- **Integrations** — adapters for Git, GitHub, ADO.
 
-## 9. Tech Stack
+## 9. Technical Considerations
 
-| Layer | Choice | Rationale |
-|---|---|---|
-| Language | Python 3.14+ | Your ecosystem, fast iteration |
-| CLI framework | Typer | Clean API, auto-generates help, you know it well |
-| Database | SQLite (via `sqlite3` stdlib) | Zero-dep, local-first, fast |
-| MCP server | `mcp` SDK | Standard protocol for LLM tool use |
-| DB layer | `sqlite-utils` | Thin wrapper over SQLite — handles table creation, inserts, queries without heavy ORM magic. Lets you drop to raw SQL when needed. Single dependency, well-maintained. |
-| Git interaction | `subprocess` / `gitpython` | Read branch names, log, etc. |
-| TUI framework | Textual | Modern Python TUI by the Rich team. Async, beautiful, well-maintained. |
-| Platform APIs | `httpx` (later) | Async-ready HTTP for GitHub/ADO REST APIs. Not needed until external context fetching. |
+This section outlines the key technical requirements without prescribing specific implementations.
+
+| Concern | Requirement |
+|---|---|
+| **CLI** | Subcommand-based interface with auto-generated help. Must support both interactive prompts and scriptable flags. |
+| **Database** | Local relational database. Must support foreign keys, cascade deletes, full-text search. No external server. |
+| **MCP Server** | Implements the Model Context Protocol for LLM tool integration. |
+| **Git Integration** | Read-only access to branch names, commit logs, and repository metadata. |
+| **TUI** | Terminal-based interface for browsing and editing. Keyboard-driven navigation. |
+| **External APIs** | HTTP client for fetching metadata from GitHub/ADO. Read-only. PAT-based auth for private repos. |
 
 ## 10. Milestones
 
@@ -369,8 +404,8 @@ Design principles:
 > *"I can create, list, view, and delete work entries from the terminal."*
 
 - [x] Design doc finalized
-- [ ] Project scaffold: `pyproject.toml`, `orbit.core`, `orbit.cli`, Typer entrypoint
-- [ ] SQLite schema (WorkEntry table, Tag table, work_entry_tags join)
+- [ ] Project scaffold with core library and CLI entrypoint
+- [ ] Database schema (WorkEntry table, Tag table, join table)
 - [ ] `orbit init` — create `~/.orbit/` and `orbit.db`
 - [ ] `orbit work new <title>` — create a work entry (with optional `--description`, `--tag`)
 - [ ] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
@@ -387,15 +422,18 @@ Design principles:
 - [ ] `orbit work show` (no args) — show the selected entry
 - [ ] `orbit link` — link artifacts (note, branch, repo, file, URL) to a work entry
 - [ ] `orbit link` defaults to selected entry when `<id>` is omitted
+- [ ] `orbit work scratchpad` — set/clear/open scratchpad folder
 - [ ] `orbit work log <message>` / `orbit work log list`
 - [ ] `orbit work today` / `orbit work diary`
 - [ ] Auto-recording of work days (on link, log, note actions)
+- [ ] `orbit work project add/remove/list` — manage project tags
+- [ ] `orbit work owner` — set/clear owner tag
 - [ ] `orbit status` — quick overview (selected entry, active entries, recent activity)
 
 ### M2 — Find & filter
 > *"I can search across everything and keep my data healthy."*
 
-- [ ] `orbit work list` with filtering: `--tag`, `--status`, `--since`, `--until`
+- [ ] `orbit work list` with filtering: `--project`, `--owner`, `--tag`, `--status`, `--since`, `--until`
 - [ ] `orbit work search <query>` — full-text search across work entries, log entries, and note content
 - [ ] `orbit doctor` — detect stale references (moved/deleted files)
 - [ ] Lazy daily health check (auto-runs on any command if >24h since last check)
@@ -406,8 +444,8 @@ Design principles:
 
 - [ ] `orbit work export <id>` — dated YAML snapshot
 - [ ] `orbit summary --since 2w` — summarize recent work
-- [ ] `orbit summary --tag project:payments` — scoped summaries
-- [ ] `orbit tui` — read-only TUI browser (Textual)
+- [ ] `orbit summary --project payments` / `--owner work` — scoped summaries
+- [ ] `orbit tui` — read-only TUI browser
   - [ ] Work entry list view (navigate, filter by status/tag)
   - [ ] Work entry detail view (description, artifacts, logs, diary)
   - [ ] Log entry timeline view

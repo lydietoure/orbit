@@ -5,13 +5,22 @@ readme = "README.md"
 dynamic = ["version"]
 authors = [{ name = "Lydie Toure", email = "lammtoure@hotmail.com" }]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "platformdirs>=4.5.1",
+    "pydantic>=2.12.5",
+    "sqlite-utils>=3.39",
+    "typer-exts @ git+https://github.com/lydietoure/typer_exts.git",
+    "typer>=0.21.1",
+]
 
 [project.scripts]
-orbit = "orbit:main"
+orbit = "orbit:__main__.main"
 
 [tool.hatch.version]
 path = "src/orbit/__init__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [build-system]
 requires = ["hatchling"]
