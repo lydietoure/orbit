@@ -1,0 +1,38 @@
+version: "3"
+
+tasks:
+
+  static-analyzer:
+    desc: "Run custom static analysis checks"
+    aliases: [stan]
+    cmd: uv run pytest -v scripts/static_analyzer.py
+    
+  test:
+    desc: "Run all tests"
+    cmds:
+      - uv run pytest -v tests 
+      - task: static-analyzer
+    
+  unit:
+    desc: "Run unit tests"
+    cmd: uv run pytest -v tests/unit
+  
+  integration:
+    desc: "Run integration tests"
+    aliases: [intg]
+    cmd: uv run pytest -v tests/integration
+    
+  lint:
+    desc: "Run linting checks"
+    cmds:
+      - task: static-analyzer
+      
+  # format:
+  #   desc: "Perform code formatting"
+  #   cmd: echo "Formatting with ruff"
+      
+  check:
+    desc: "Run all checks (linting and tests)"
+    cmds:
+      - task: lint
+      - task: test
