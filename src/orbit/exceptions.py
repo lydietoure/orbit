@@ -10,7 +10,7 @@ class InstallationError(OrbitError):
     pass
 
 class NotInitializedError(InstallationError):
-    """Orbit has not been initialized """
+    """Orbit has not been initialized."""
     pass
 
 class AlreadyInitializedError(InstallationError):

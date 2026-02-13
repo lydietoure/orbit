@@ -16,7 +16,7 @@ ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
 
 class ConsoleFormatter(logging.Formatter):
-    """Different format based on log level"""
+    """Different format based on log level."""
     
     RICH_MARKUP = {
         logging.DEBUG: "[green]{}[/green]",

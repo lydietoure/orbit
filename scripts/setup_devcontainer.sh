@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Set up the development container for the Orbit project (for Github Codespaces)
+# Set up the development container for the Orbit project (for GitHub Codespaces)
 # This is the `postCreateCommand` for the .devcontainer/devcontainer.json file 
 
 echo "Setting up development container for Orbit project..."
