@@ -49,11 +49,11 @@ class ConsoleFormatter(logging.Formatter):
         return colored_output
 
 
-def setup_logging(level: int = logging.INFO, enable_file_logging: bool = False, reset: bool = False) -> None:
+def setup_logging(level: int = logging.INFO, log_to_file: bool = False, reset: bool = False) -> None:
     """Set up logging for the application.
     
     :param level: The logging level (e.g. logging.DEBUG, logging.INFO).
-    :param enable_file_logging: If True, also log to a file named "orbit.log" in the application directory
+    :param log_to_file: If True, also log to a file named "orbit.log" in the application directory
     :param reset: If True, reset existing logging configuration before setting up new configuration. Otherwise, an exception is raised
     :raise OrbitError: If logging is already configured and reset is False.
     """
@@ -82,7 +82,7 @@ def setup_logging(level: int = logging.INFO, enable_file_logging: bool = False, 
         handlers = [console_handler]
     )
     
-    if enable_file_logging:
+    if log_to_file:
         enable_file_logging()
         
     _logging_configured = True
