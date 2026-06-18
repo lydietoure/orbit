@@ -2,37 +2,24 @@ version: "3"
 
 tasks:
 
-  static-analyzer:
-    desc: "Run custom static analysis checks"
-    aliases: [stan]
-    cmd: uv run pytest -v scripts/static_analyzer.py
-    
+  build:
+    desc: "Build the orbit binary"
+    cmd: go build -o orbit ./cmd/orbit
+
   test:
     desc: "Run all tests"
-    cmds:
-      - uv run pytest -v tests 
-      - task: static-analyzer
-    
-  unit:
-    desc: "Run unit tests"
-    cmd: uv run pytest -v tests/unit
-  
-  integration:
-    desc: "Run integration tests"
-    aliases: [intg]
-    cmd: uv run pytest -v tests/integration
-    
+    cmd: go test ./...
+
   lint:
     desc: "Run linting checks"
-    cmds:
-      - task: static-analyzer
-      
-  # format:
-  #   desc: "Perform code formatting"
-  #   cmd: echo "Formatting with ruff"
-      
+    cmd: go vet ./...
+
   check:
-    desc: "Run all checks (linting and tests)"
+    desc: "Run all checks (lint and tests)"
     cmds:
       - task: lint
       - task: test
+
+  clean:
+    desc: "Remove build artifacts"
+    cmd: rm -f orbit orbit.exe
