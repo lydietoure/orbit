@@ -28,6 +28,7 @@ def main_callback(
     """
     pass
 
+#region Lifecycle
 @app.command()
 def initialize():
     """Initialise the application by creating the necessary configuration files and directories."""
@@ -37,3 +38,14 @@ def initialize():
 def status():
     """Check the status of your current work and see an overview of your projects."""
     print("Checking status...")
+    
+@app.command()
+def summary():
+    """Generate a summary of recent work"""
+    print("Generating summary...")
+
+#endregion
+
+#region subcommand groups
+
+#endregion
