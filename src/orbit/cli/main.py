@@ -1,6 +1,5 @@
 
 import typer
-from typer_exts import TyperExt
 
 
 from orbit import (
