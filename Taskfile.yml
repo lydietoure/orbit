@@ -4,7 +4,7 @@ tasks:
 
   build:
     desc: "Build the orbit binary"
-    cmd: go build -o orbit ./cmd/orbit
+    cmd: go build -o dist/orbit ./cmd/orbit
 
   test:
     desc: "Run all tests"
@@ -22,4 +22,4 @@ tasks:
 
   clean:
     desc: "Remove build artifacts"
-    cmd: rm -f orbit orbit.exe
+    cmd: rm -rf dist/
