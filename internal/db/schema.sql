@@ -1,0 +1,3 @@
+-- Orbit database schema
+-- See docs/DATA_MODEL.md for conceptual model
+-- See docs/TECH_STACK.md for implementation details

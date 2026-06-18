@@ -1,6 +1,4 @@
 # Binaries
-orbit
-orbit.exe
 *.exe
 *.dll
 *.so
