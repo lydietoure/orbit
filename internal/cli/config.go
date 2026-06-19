@@ -9,7 +9,7 @@ import (
 )
 
 // getCmdConfig builds `orbit config` and its subcommands. Today it
-// only carries the pad/dock settings; future scalar prefs (default
+// only carries the dock settings; future scalar prefs (default
 // editor, etc.) will hang off the same tree.
 //
 // Vocabulary: a "pad" is the per-entry folder where you do
@@ -21,27 +21,27 @@ func getCmdConfig() *cobra.Command {
 		Use:   "config",
 		Short: "View and update orbit settings",
 	}
-	cmd.AddCommand(newConfigPadCmd())
+	cmd.AddCommand(newConfigDockCmd())
 	return cmd
 }
 
-func newConfigPadCmd() *cobra.Command {
+func newConfigDockCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "pad",
+		Use:   "dock",
 		Short: "Configure the dock — where pads live, and how they're provisioned",
 	}
 	cmd.AddCommand(
-		newConfigPadGetRootCmd(),
-		newConfigPadSetRootCmd(),
-		newConfigPadUnsetRootCmd(),
-		newConfigPadAutoCreateCmd(),
+		newConfigDockGetCmd(),
+		newConfigDockSetCmd(),
+		newConfigDockUnsetCmd(),
+		newConfigDockAutoCreateCmd(),
 	)
 	return cmd
 }
 
-func newConfigPadGetRootCmd() *cobra.Command {
+func newConfigDockGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get-root",
+		Use:   "get",
 		Short: "Show the current dock root and auto-create setting",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -66,9 +66,9 @@ func newConfigPadGetRootCmd() *cobra.Command {
 	}
 }
 
-func newConfigPadSetRootCmd() *cobra.Command {
+func newConfigDockSetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "set-root <path>",
+		Use:   "set <path>",
 		Short: "Set the dock root — the directory where pads live",
 		Long: `Set the dock root.
 
@@ -87,9 +87,9 @@ variable, if set, still overrides this value at read time.`,
 	}
 }
 
-func newConfigPadUnsetRootCmd() *cobra.Command {
+func newConfigDockUnsetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "unset-root",
+		Use:   "unset",
 		Short: "Clear the dock root",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -102,7 +102,7 @@ func newConfigPadUnsetRootCmd() *cobra.Command {
 	}
 }
 
-func newConfigPadAutoCreateCmd() *cobra.Command {
+func newConfigDockAutoCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "auto-create <true|false>",
 		Short: "Toggle automatic pad provisioning under the dock root",

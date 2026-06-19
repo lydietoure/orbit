@@ -8,7 +8,7 @@ package app
 // Resolution order for the root:
 //
 //  1. ORBIT_DOCK env var (if set and non-empty).
-//  2. The value persisted in the DB via `orbit config pad set-root`.
+//  2. The value persisted in the DB via `orbit config dock set`.
 //  3. Unset — returned as the empty string with [DockRootUnset].
 //
 // Only the DB-stored value is mutable through the CLI; the env var
@@ -40,7 +40,7 @@ const (
 	// environment variable.
 	DockRootFromEnv
 	// DockRootFromConfig means the value came from the DB-stored
-	// `orbit config pad set-root` value.
+	// `orbit config dock set` value.
 	DockRootFromConfig
 )
 
@@ -58,7 +58,7 @@ func (s DockRootSource) String() string {
 
 // ErrEmptyDockRoot is returned by [SetDockRoot] when the supplied
 // path is empty or whitespace-only. Use [UnsetDockRoot] to clear.
-var ErrEmptyDockRoot = errors.New("dock root path is empty; use `orbit config pad unset-root` to clear")
+var ErrEmptyDockRoot = errors.New("dock root path is empty; use `orbit config dock unset` to clear")
 
 // GetDockRoot resolves the current dock root.
 //
@@ -96,7 +96,7 @@ func GetDockRoot(ctx context.Context) (string, DockRootSource, error) {
 // absolutized so subsequent reads return a stable value regardless
 // of the working directory at set time. The env var, if set, still
 // takes precedence at read time — that is by design (env >
-// config), and `get-root` surfaces the source.
+// config), and `orbit config dock get` surfaces the source.
 //
 // Returns the absolutized path that was stored.
 func SetDockRoot(ctx context.Context, path string) (string, error) {

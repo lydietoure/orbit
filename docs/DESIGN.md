@@ -189,10 +189,10 @@ Orbit does **not** impose a folder layout for pads. By default, the user passes 
 For convenience, the user can opt in to a single "home for pads" — the **dock** — via the CLI:
 
 ```
-orbit config pad set-root <path>     # Set the dock root (absolutized at set time)
-orbit config pad get-root            # Show the resolved root + auto-create state
-orbit config pad unset-root          # Clear the persisted root
-orbit config pad auto-create <bool>  # Toggle auto-provisioning of per-entry subdirs
+orbit config dock set <path>          # Set the dock root (absolutized at set time)
+orbit config dock get                 # Show the resolved root + auto-create state
+orbit config dock unset               # Clear the persisted root
+orbit config dock auto-create <bool>  # Toggle auto-provisioning of per-entry subdirs
 ```
 
 The dock root is **persisted in `orbit.db`** (on the singleton `state` row), not in `config.yaml`. The `config.yaml` file is hand-edited and orbit never rewrites it; mutable settings belong in the database.
@@ -200,7 +200,7 @@ The dock root is **persisted in `orbit.db`** (on the singleton `state` row), not
 Resolution order at read time:
 
 1. `ORBIT_DOCK` environment variable (if set and non-empty) — absolutized.
-2. The DB-persisted value from `orbit config pad set-root`.
+2. The DB-persisted value from `orbit config dock set`.
 3. Unset — callers treat pad paths as bare CWD-relative names.
 
 When set, `orbit work new <title> -p <name>` resolves `<name>` against the dock root and creates the folder there. When unset, `-p <name>` creates `<name>` in the current working directory. With `auto-create true`, `orbit work new` provisions a subdirectory under the dock root automatically (no `-p` needed). See [CLI Design](#6-cli-design) for the full resolution rules.
@@ -468,7 +468,7 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] `--no-select` flag on `orbit work new` — skip auto-select (for scripts)
 - [x] `orbit work new <title> -p <name>` — also create a pad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
 - [x] `--no-dock` flag on `orbit work new` — ignore the dock root for this entry
-- [x] Read dock root from DB / env (already implemented via `orbit config pad set-root`)
+- [x] Read dock root from DB / env (already implemented via `orbit config dock set`)
 - [ ] `orbit work pad <path>` / `--clear` / `--open` — manage the pad after creation
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
   - [ ] Output formatting: --output table, json, plain

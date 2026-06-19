@@ -54,7 +54,7 @@ Orbit doesn't impose a folder layout — it indexes references you provide. A ty
 ```sh
 # 1. Create the work entry and a pad folder for it
 orbit work new "Add caching to payment flow" -p payments-caching
-# If a dock root is set (via `orbit config pad set-root` or ORBIT_DOCK),
+# If a dock root is set (via `orbit config dock set` or ORBIT_DOCK),
 # this creates:
 #   {dock-root}/payments-caching/
 # Otherwise it creates ./payments-caching/ in the current directory.
