@@ -33,6 +33,9 @@ task build        # builds to dist/orbit
 mkdir -p dist && go build -o dist/orbit ./cmd/orbit
 ```
 
+For day-to-day development — tests, smoke runs against a throwaway
+orbit home, environment variables — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 ### Usage
 
 ```sh
@@ -92,3 +95,4 @@ The core idea: **orbit holds the index, your repos / notes / scratchpad hold the
 - [Design Document](docs/DESIGN.md) — vision, CLI design, milestones
 - [Data Model](docs/DATA_MODEL.md) — entity relationships and schema
 - [Tech Stack](docs/TECH_STACK.md) — Go libraries and project layout
+- [Development](docs/DEVELOPMENT.md) — build, test, smoke harness, env vars

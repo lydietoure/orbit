@@ -1,5 +1,10 @@
 version: "3"
 
+# Load .env (gitignored) for local-only knobs like SMOKE_TEST_DIR or
+# ORBIT_VERBOSE. CLI overrides (`task smoke SMOKE_TEST_DIR=...`) win.
+# SMOKE_TEST_DIR has NO default — it must come from .env or the CLI.
+dotenv: ['.env']
+
 tasks:
 
   build:
@@ -25,3 +30,32 @@ tasks:
   clean:
     desc: "Remove build artifacts"
     cmd: rm -rf dist/
+
+  smoke:
+    desc: |
+      Run orbit against ORBIT_HOME=$SMOKE_TEST_DIR (set in .env or on CLI).
+      Pass arguments to orbit after `--`, e.g.:
+        task smoke -- init
+        task smoke -- -v init
+        task smoke SMOKE_TEST_DIR=.local/foo -- init
+    requires:
+      vars: [SMOKE_TEST_DIR]
+    env:
+      ORBIT_HOME: '{{.SMOKE_TEST_DIR}}'
+    cmds:
+      - mkdir -p "{{.SMOKE_TEST_DIR}}"
+      - go run ./cmd/orbit {{.CLI_ARGS}}
+
+  smoke:clean:
+    desc: "Empty the smoke test ORBIT_HOME directory (the directory itself is preserved)"
+    requires:
+      vars: [SMOKE_TEST_DIR]
+    cmds:
+      - rm -rf "{{.SMOKE_TEST_DIR}}"/*
+
+  smoke:reset:
+    desc: "Empty SMOKE_TEST_DIR and re-run `orbit init` (forwards extra args after --)"
+    cmds:
+      - task: smoke:clean
+      - task: smoke
+        vars: { CLI_ARGS: 'init {{.CLI_ARGS}}' }
