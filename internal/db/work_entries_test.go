@@ -380,3 +380,62 @@ func TestDeleteWorkEntry_ClearsSelectedPointer(t *testing.T) {
 		t.Errorf("selected_work_entry_id = %q after delete, want NULL", sel.String)
 	}
 }
+
+func TestUpdateWorkEntryPad_SetsPathAndBumpsUpdatedAt(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "pad target"})
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+
+	newPad := "/tmp/some/pad"
+	// Bump updated_at by a clear interval so the round-trip check
+	// can verify the column actually changed.
+	newUpdatedAt := entry.UpdatedAt.Add(time.Hour)
+	if err := UpdateWorkEntryPad(context.Background(), db, entry.ID, newPad, newUpdatedAt); err != nil {
+		t.Fatalf("UpdateWorkEntryPad: %v", err)
+	}
+
+	got, err := GetWorkEntry(context.Background(), db, entry.ID)
+	if err != nil {
+		t.Fatalf("GetWorkEntry: %v", err)
+	}
+	if got.PadPath != newPad {
+		t.Errorf("PadPath = %q, want %q", got.PadPath, newPad)
+	}
+	if !got.UpdatedAt.Equal(newUpdatedAt) {
+		t.Errorf("UpdatedAt = %v, want %v", got.UpdatedAt, newUpdatedAt)
+	}
+}
+
+func TestUpdateWorkEntryPad_EmptyStringClearsColumn(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "pad clear target"})
+	entry.PadPath = "/tmp/keep-this-until-cleared"
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+
+	if err := UpdateWorkEntryPad(context.Background(), db, entry.ID, "", time.Now().UTC()); err != nil {
+		t.Fatalf("UpdateWorkEntryPad clear: %v", err)
+	}
+
+	// Verify the column went to NULL (not empty string) — that's
+	// the contract of nullableText, and other code paths rely on
+	// the distinction.
+	var pad sql.NullString
+	if err := db.QueryRow(`SELECT pad_path FROM work_entries WHERE id = ?`, entry.ID).Scan(&pad); err != nil {
+		t.Fatalf("read pad_path: %v", err)
+	}
+	if pad.Valid {
+		t.Errorf("pad_path = %q after clear, want NULL", pad.String)
+	}
+}
+
+func TestUpdateWorkEntryPad_NotFoundErr(t *testing.T) {
+	db := newTestDB(t)
+	err := UpdateWorkEntryPad(context.Background(), db, "ghost", "/anywhere", time.Now().UTC())
+	if !errors.Is(err, ErrWorkEntryNotFound) {
+		t.Errorf("err = %v, want ErrWorkEntryNotFound", err)
+	}
+}

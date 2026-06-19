@@ -236,6 +236,28 @@ func DeleteWorkEntry(ctx context.Context, db *sql.DB, id string) error {
 	return nil
 }
 
+// UpdateWorkEntryPad sets the pad_path on the row with the given id
+// and bumps updated_at. An empty padPath clears the column (stored
+// as NULL via [nullableText]). Returns a wrapped
+// [ErrWorkEntryNotFound] if no row matched.
+func UpdateWorkEntryPad(ctx context.Context, db *sql.DB, id string, padPath string, updatedAt time.Time) error {
+	res, err := db.ExecContext(ctx,
+		`UPDATE work_entries SET pad_path = ?, updated_at = ? WHERE id = ?`,
+		nullableText(padPath), isoTime(updatedAt), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update work entry %s pad: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update work entry %s pad: rows affected: %w", id, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: %s", ErrWorkEntryNotFound, id)
+	}
+	return nil
+}
+
 // nullableText returns nil for the empty string and s otherwise. Passing
 // nil to a SQL driver writes NULL; passing an empty string writes ”.
 // Using NULL keeps optional fields cleanly absent.

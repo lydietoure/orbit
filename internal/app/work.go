@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log/slog"
 	"sort"
+	"time"
 
 	"github.com/lydietoure/orbit/internal/core"
 	"github.com/lydietoure/orbit/internal/db"
@@ -85,6 +85,19 @@ type CreateWorkParams struct {
 // fails the entry still exists and the user can recover with the
 // targeted command (`work tag`, `work select`). Worth revisiting
 // once the db package grows a tx helper.
+//
+// If the pad directory already existed on disk, the entry is still
+// fully created and persisted, and CreateWork returns the entry
+// together with [ErrPadAlreadyExisted]. That sentinel signals
+// "success, but worth telling the user" — callers MUST check it
+// before treating err as a failure, e.g.:
+//
+//	entry, err := app.CreateWork(ctx, p)
+//	if errors.Is(err, app.ErrPadAlreadyExisted) {
+//		// inform the user, then drop the sentinel
+//		err = nil
+//	}
+//	if err != nil { return err }
 func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error) {
 	tags, err := normalizeUniqueTags(p.Tags)
 	if err != nil {
@@ -97,19 +110,17 @@ func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error)
 	// they already had. The absolute path is what we store on the
 	// entry so `work show` and downstream tooling see a stable value.
 	padAbs := ""
+	padExisted := false
 	if p.PadPath != "" {
 		abs, err := ResolvePadPath(ctx, p.PadPath, p.NoDock)
 		if err != nil {
 			return core.WorkEntry{}, err
 		}
-		if err := ProvisionPad(abs); err != nil {
-			if !errors.Is(err, ErrPadAlreadyExisted) {
-				return core.WorkEntry{}, err
+		if perr := ProvisionPad(abs); perr != nil {
+			if !errors.Is(perr, ErrPadAlreadyExisted) {
+				return core.WorkEntry{}, perr
 			}
-			slog.Warn("pad path already exists",
-				"path", abs,
-				"title", p.Title,
-			)
+			padExisted = true
 		}
 		padAbs = abs
 	}
@@ -148,6 +159,9 @@ func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error)
 		if err := db.SelectWorkEntry(ctx, d, entry.ID); err != nil {
 			return core.WorkEntry{}, err
 		}
+	}
+	if padExisted {
+		return entry, ErrPadAlreadyExisted
 	}
 	return entry, nil
 }
@@ -239,6 +253,65 @@ func DeleteWork(ctx context.Context, id string) (core.WorkEntry, error) {
 		return core.WorkEntry{}, err
 	}
 	return entry, nil
+}
+
+// SetPad resolves rawPath (respecting the dock root unless noDock
+// is true), provisions the directory on disk if needed, and writes
+// the absolute path onto the entry. Returns the fully-updated
+// entry.
+//
+// If the pad directory already existed on disk, the update is
+// still applied and SetPad returns the entry together with
+// [ErrPadAlreadyExisted] — same success-with-warning convention as
+// [CreateWork]. Callers MUST check the sentinel before treating
+// err as a failure.
+//
+// An empty rawPath clears the pad column. The directory on disk is
+// intentionally NOT touched in either direction — disk removal
+// belongs to `orbit work delete --purge` semantics.
+//
+// An empty id falls back to the currently selected entry; if
+// nothing is selected, returns [ErrNoTargetWorkEntry]. Wraps
+// [db.ErrWorkEntryNotFound] if the id doesn't match any row.
+func SetPad(ctx context.Context, id, rawPath string, noDock bool) (core.WorkEntry, error) {
+	d, closer, err := open()
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	defer closer()
+
+	target, err := resolveTargetID(ctx, d, id)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+
+	padAbs := ""
+	padExisted := false
+	if rawPath != "" {
+		abs, err := ResolvePadPath(ctx, rawPath, noDock)
+		if err != nil {
+			return core.WorkEntry{}, err
+		}
+		if perr := ProvisionPad(abs); perr != nil {
+			if !errors.Is(perr, ErrPadAlreadyExisted) {
+				return core.WorkEntry{}, perr
+			}
+			padExisted = true
+		}
+		padAbs = abs
+	}
+
+	if err := db.UpdateWorkEntryPad(ctx, d, target, padAbs, time.Now().UTC()); err != nil {
+		return core.WorkEntry{}, err
+	}
+	updated, err := db.GetWorkEntry(ctx, d, target)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	if padExisted {
+		return updated, ErrPadAlreadyExisted
+	}
+	return updated, nil
 }
 
 // SelectWork sets the given entry as the current focus and returns

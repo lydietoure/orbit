@@ -92,8 +92,12 @@ func TestCreateWork_PadAlreadyExistedSucceeds(t *testing.T) {
 		PadPath:  "already-here",
 		NoSelect: true,
 	})
-	if err != nil {
-		t.Fatalf("CreateWork: %v", err)
+	if !errors.Is(err, ErrPadAlreadyExisted) {
+		t.Fatalf("CreateWork err = %v, want ErrPadAlreadyExisted "+
+			"(success sentinel signalling the pad was reused)", err)
+	}
+	if entry.ID == "" {
+		t.Error("entry not created despite success sentinel")
 	}
 	if entry.PadPath != preexisting {
 		t.Errorf("entry.PadPath = %q, want %q", entry.PadPath, preexisting)
@@ -224,5 +228,141 @@ func TestDeleteWork_NotInitialized(t *testing.T) {
 	_, err := DeleteWork(context.Background(), "whatever")
 	if !errors.Is(err, ErrNotInitialized) {
 		t.Errorf("err = %v, want ErrNotInitialized", err)
+	}
+}
+
+// TestSetPad_ProvisionsAndStoresAbsolutePath covers the typical
+// flow: an entry with no pad gets one assigned by name, the
+// directory is created under the dock root, and the absolute path
+// lands on the entry.
+func TestSetPad_ProvisionsAndStoresAbsolutePath(t *testing.T) {
+	setupInitializedHome(t)
+	dock := t.TempDir()
+	t.Setenv(DockEnv, dock)
+
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title:    "pad target",
+		NoSelect: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+	if created.PadPath != "" {
+		t.Fatalf("precondition: created.PadPath = %q, want empty", created.PadPath)
+	}
+
+	entry, err := SetPad(context.Background(), created.ID, "fresh-pad", false)
+	if err != nil {
+		t.Fatalf("SetPad: %v", err)
+	}
+
+	want := filepath.Join(dock, "fresh-pad")
+	if entry.PadPath != want {
+		t.Errorf("entry.PadPath = %q, want %q", entry.PadPath, want)
+	}
+	info, err := os.Stat(want)
+	if err != nil {
+		t.Fatalf("expected pad dir on disk: %v", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("pad path is not a directory: %v", info.Mode())
+	}
+}
+
+// TestSetPad_AdoptsPreexistingDirectory flags the case the CLI
+// uses to surface a "reusing existing folder" note.
+func TestSetPad_AdoptsPreexistingDirectory(t *testing.T) {
+	setupInitializedHome(t)
+	dock := t.TempDir()
+	t.Setenv(DockEnv, dock)
+
+	preexisting := filepath.Join(dock, "already-there")
+	if err := os.MkdirAll(preexisting, 0o755); err != nil {
+		t.Fatalf("pre-create: %v", err)
+	}
+
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title:    "adopt target",
+		NoSelect: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+
+	entry, err := SetPad(context.Background(), created.ID, "already-there", false)
+	if !errors.Is(err, ErrPadAlreadyExisted) {
+		t.Fatalf("SetPad err = %v, want ErrPadAlreadyExisted "+
+			"(success sentinel signalling the pad was reused)", err)
+	}
+	if entry.PadPath != preexisting {
+		t.Errorf("entry.PadPath = %q, want %q", entry.PadPath, preexisting)
+	}
+}
+
+// TestSetPad_EmptyPathClearsAndLeavesDiskAlone confirms the unset
+// case: the column goes to empty, and the directory on disk (if
+// any) is untouched. Disk removal belongs to --purge semantics.
+func TestSetPad_EmptyPathClearsAndLeavesDiskAlone(t *testing.T) {
+	setupInitializedHome(t)
+	dock := t.TempDir()
+	t.Setenv(DockEnv, dock)
+
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title:    "clear target",
+		PadPath:  "keep-on-disk",
+		NoSelect: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+	padOnDisk := created.PadPath
+
+	entry, err := SetPad(context.Background(), created.ID, "", false)
+	if err != nil {
+		t.Fatalf("SetPad clear: %v", err)
+	}
+	if entry.PadPath != "" {
+		t.Errorf("entry.PadPath = %q after clear, want empty", entry.PadPath)
+	}
+	if _, statErr := os.Stat(padOnDisk); statErr != nil {
+		t.Errorf("pad directory removed by clear (must be left on disk): %v", statErr)
+	}
+}
+
+// TestSetPad_UnknownIDReturnsNotFound mirrors the contract used by
+// the other mutating use cases.
+func TestSetPad_UnknownIDReturnsNotFound(t *testing.T) {
+	setupInitializedHome(t)
+	dock := t.TempDir()
+	t.Setenv(DockEnv, dock)
+
+	_, err := SetPad(context.Background(), "ghost", "anywhere", false)
+	if !errors.Is(err, db.ErrWorkEntryNotFound) {
+		t.Errorf("err = %v, want db.ErrWorkEntryNotFound", err)
+	}
+}
+
+// TestSetPad_EmptyIDFallsBackToSelected confirms the same
+// optional-id pattern other commands use.
+func TestSetPad_EmptyIDFallsBackToSelected(t *testing.T) {
+	setupInitializedHome(t)
+	dock := t.TempDir()
+	t.Setenv(DockEnv, dock)
+
+	// Default NoSelect: false → this auto-selects.
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title: "selected pad target",
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+
+	entry, err := SetPad(context.Background(), "", "selected-pad", false)
+	if err != nil {
+		t.Fatalf("SetPad with empty id: %v", err)
+	}
+	if entry.ID != created.ID {
+		t.Errorf("resolved id = %q, want %q (should have used the selected entry)",
+			entry.ID, created.ID)
 	}
 }

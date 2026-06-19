@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,6 +35,7 @@ func getCmdWork() *cobra.Command {
 		newWorkSelectedCmd(),
 		newWorkForgetCmd(),
 		newWorkTagCmd(),
+		newWorkPadCmd(),
 	)
 	return cmd
 }
@@ -60,6 +62,10 @@ func newWorkNewCmd() *cobra.Command {
 				Tags:        tags,
 				NoSelect:    noSelect,
 			})
+			padExisted := errors.Is(err, app.ErrPadAlreadyExisted)
+			if padExisted {
+				err = nil // success-with-warning sentinel
+			}
 			if err != nil {
 				return err
 			}
@@ -67,7 +73,13 @@ func newWorkNewCmd() *cobra.Command {
 			if noSelect {
 				verb = "Created"
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s %s: %q\n", verb, entry.ID, entry.Title)
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "%s %s: %q\n", verb, entry.ID, entry.Title)
+			if padExisted {
+				fmt.Fprintf(out,
+					"Note: pad directory %s already existed and is being reused as-is.\n",
+					entry.PadPath)
+			}
 			return nil
 		},
 	}
@@ -385,3 +397,133 @@ func newWorkTagCmd() *cobra.Command {
 //endregion
 
 // region work pad
+
+// newWorkPadCmd builds the `orbit work pad` group: focused commands
+// for inspecting and changing the pad on a single entry. The parent
+// has no Run of its own — the strict-mode helper in strict.go makes
+// bare `orbit work pad` exit 2 with the usual hint.
+func newWorkPadCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pad",
+		Short: "Inspect or change the pad folder attached to a work entry",
+	}
+	cmd.AddCommand(
+		newWorkPadGetCmd(),
+		newWorkPadSetCmd(),
+		newWorkPadShowCmd(),
+	)
+	return cmd
+}
+
+func newWorkPadGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get [id]",
+		Short: "Print only the pad path (defaults to the selected entry); exits non-zero when no pad is set",
+		Long: "Print the absolute pad path on stdout with no decoration, so it can " +
+			"be captured in scripts: `pad=$(orbit work pad get)`.\n\n" +
+			"Exits with a non-zero status and a brief stderr message when " +
+			"the entry has no pad set, so callers can distinguish unset from empty.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := ""
+			if len(args) == 1 {
+				id = args[0]
+			}
+			entry, err := app.ShowWork(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			if entry.PadPath == "" {
+				return fmt.Errorf("entry %s has no pad set", entry.ID)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), entry.PadPath)
+			return nil
+		},
+	}
+}
+
+func newWorkPadSetCmd() *cobra.Command {
+	var noDock bool
+	cmd := &cobra.Command{
+		Use:   "set [id] <path>",
+		Short: "Set (or change) the pad on a work entry; defaults to the selected entry when only <path> is given",
+		Long: "Set the pad folder for a work entry. <path> follows the same " +
+			"resolution rules as `orbit work new -p`: a bare name resolves " +
+			"under the dock root, an absolute or `./`-prefixed path is used " +
+			"as-is. The directory is provisioned if it doesn't exist; if it " +
+			"already exists, it's adopted as-is with a note.",
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Two-arg form: <id> <path>. One-arg form: just <path>,
+			// in which case the app layer resolves the selected entry.
+			id, rawPath := "", args[0]
+			if len(args) == 2 {
+				id, rawPath = args[0], args[1]
+			}
+
+			entry, err := app.SetPad(cmd.Context(), id, rawPath, noDock)
+			padExisted := errors.Is(err, app.ErrPadAlreadyExisted)
+			if padExisted {
+				err = nil // success-with-warning sentinel
+			}
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "Pad for %s set to %s\n", entry.ID, entry.PadPath)
+			if padExisted {
+				fmt.Fprintf(out,
+					"Note: directory %s already existed and is being reused as-is.\n",
+					entry.PadPath)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&noDock, "no-dock", false,
+		"Ignore the dock root and resolve <path> relative to the current directory")
+	return cmd
+}
+
+func newWorkPadShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show [id]",
+		Short: "Show the pad path and whether the directory exists on disk (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := ""
+			if len(args) == 1 {
+				id = args[0]
+			}
+			entry, err := app.ShowWork(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "Entry:  %s %q\n", entry.ID, entry.Title)
+			if entry.PadPath == "" {
+				fmt.Fprintln(out, "Pad:    (none)")
+				return nil
+			}
+
+			// Resolve "exists" with a quick stat — string answer
+			// stays useful even on read errors (a permission issue
+			// is reported alongside the path rather than as a
+			// command failure, since the user is asking for info).
+			status := "exists"
+			if info, statErr := os.Stat(entry.PadPath); statErr != nil {
+				if os.IsNotExist(statErr) {
+					status = "missing"
+				} else {
+					status = fmt.Sprintf("stat error: %v", statErr)
+				}
+			} else if !info.IsDir() {
+				status = "not a directory"
+			}
+			fmt.Fprintf(out, "Pad:    %s  (%s)\n", entry.PadPath, status)
+			return nil
+		},
+	}
+}
+
+//endregion
