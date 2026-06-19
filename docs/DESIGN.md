@@ -47,12 +47,12 @@ Existing tools (ADO boards, GitHub Projects, Notion, Obsidian) each cover a slic
 
 | Concept | Description |
 |---|---|
-| **WorkEntry** | The central unit. Represents a piece of work (feature, bug, spike, learning). Has a title, **description**, status (with reason), optional **scratchpad** path, tags, timestamps. The description is stored in the DB so the work entry remains self-explanatory even if all linked references become stale. |
+| **WorkEntry** | The central unit. Represents a piece of work (feature, bug, spike, learning). Has a title, **description**, status (with reason), optional **pad** path, tags, timestamps. The description is stored in the DB so the work entry remains self-explanatory even if all linked references become stale. |
 | **Artifact** | Something linked to a WorkEntry. Types: `branch`, `pr`, `workitem`, `repo`, `dir`, `file`, `url`, `custom`. |
 | **Note** | A dated reference to a markdown file the user manages. Orbit does not own note storage — the user decides where notes live (Obsidian vault, a project folder, anywhere). Orbit tracks the path and the date. Notes may contain rich markdown (code blocks, images, links). |
 | **LogEntry** | A timestamped one-liner attached to a WorkEntry, stored directly in the DB. Captures quick observations in the moment (from the terminal) without switching to a notes app. Lightweight complement to Notes — useful for timeline reconstruction, MCP search, and memory. |
 | **WorkDay** | A date on which you worked on a WorkEntry. Acts as an index into your daily notes — orbit doesn't copy content from your journal, it just knows *which days* you worked on something, so you can go back to those daily notes yourself. |
-| **Scratchpad** | An optional folder path where you do experimental work for this entry (test files, scratch code, prototypes). Unlike artifacts which are references, the scratchpad is where you actively work. One per WorkEntry. |
+| **Pad** | An optional folder path where you do experimental work for this entry (test files, scratch code, prototypes). Short for "scratchpad". Unlike artifacts which are references, the pad is where you actively work. One per WorkEntry. |
 | **Tag** | A free-form label for cross-cutting concerns (e.g., `caching`, `perf`, `debugging`). |
 
 ### Status lifecycle
@@ -78,7 +78,7 @@ At any time, one WorkEntry can be **selected** as the current focus. This is sto
 - `orbit status` highlights the selected entry.
 - `orbit work show` with no args shows the selected entry.
 
-`orbit work new` **auto-selects** the newly-created entry, so the immediate next command (`orbit work scratchpad --open`, `orbit link --repo ...`, `orbit work log "..."`, etc.) Just Works without an explicit `select`. Pass `--no-select` to opt out (e.g., when scripting bulk creation).
+`orbit work new` **auto-selects** the newly-created entry, so the immediate next command (`orbit work pad --open`, `orbit link --repo ...`, `orbit work log "..."`, etc.) Just Works without an explicit `select`. Pass `--no-select` to opt out (e.g., when scripting bulk creation).
 
 ```
 orbit work select <id>              # Set the selected work entry
@@ -146,7 +146,7 @@ WorkEntry: "Add caching to payment flow"
   ├─ description: "Introduce Redis caching layer for the payment
   │    lookup path to reduce p99 latency. Spans payments-service
   │    and the shared client library."
-  ├─ scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
+  ├─ pad: C:/Users/me/code/payments-service/.dev/caching-experiments
   ├─ tags: [owner:work, project:payments, caching, perf]
   ├─ artifacts:
   │    ├─ branch: payments-repo/feature/add-cache
@@ -184,15 +184,15 @@ WorkEntry: "Add caching to payment flow"
 
 ### The dock
 
-Orbit does **not** impose a folder layout for scratchpads. By default, the user passes an explicit path to `orbit work scratchpad <path>`.
+Orbit does **not** impose a folder layout for pads. By default, the user passes an explicit path to `orbit work pad <path>`.
 
-For convenience, the user can opt in to a single "home for scratchpads" — the **dock** — via the CLI:
+For convenience, the user can opt in to a single "home for pads" — the **dock** — via the CLI:
 
 ```
-orbit config scratchpad set-root <path>     # Set the dock root (absolutized at set time)
-orbit config scratchpad get-root            # Show the resolved root + auto-create state
-orbit config scratchpad unset-root          # Clear the persisted root
-orbit config scratchpad auto-create <bool>  # Toggle auto-provisioning of per-entry subdirs
+orbit config pad set-root <path>     # Set the dock root (absolutized at set time)
+orbit config pad get-root            # Show the resolved root + auto-create state
+orbit config pad unset-root          # Clear the persisted root
+orbit config pad auto-create <bool>  # Toggle auto-provisioning of per-entry subdirs
 ```
 
 The dock root is **persisted in `orbit.db`** (on the singleton `state` row), not in `config.yaml`. The `config.yaml` file is hand-edited and orbit never rewrites it; mutable settings belong in the database.
@@ -200,10 +200,10 @@ The dock root is **persisted in `orbit.db`** (on the singleton `state` row), not
 Resolution order at read time:
 
 1. `ORBIT_DOCK` environment variable (if set and non-empty) — absolutized.
-2. The DB-persisted value from `orbit config scratchpad set-root`.
-3. Unset — callers treat scratchpad paths as bare CWD-relative names.
+2. The DB-persisted value from `orbit config pad set-root`.
+3. Unset — callers treat pad paths as bare CWD-relative names.
 
-When set, `orbit work new <title> -s <name>` resolves `<name>` against the dock root and creates the folder there. When unset, `-s <name>` creates `<name>` in the current working directory. With `auto-create true`, `orbit work new` provisions a subdirectory under the dock root automatically (no `-s` needed). See [CLI Design](#6-cli-design) for the full resolution rules.
+When set, `orbit work new <title> -p <name>` resolves `<name>` against the dock root and creates the folder there. When unset, `-p <name>` creates `<name>` in the current working directory. With `auto-create true`, `orbit work new` provisions a subdirectory under the dock root automatically (no `-p` needed). See [CLI Design](#6-cli-design) for the full resolution rules.
 
 
 Advantages:
@@ -240,7 +240,7 @@ description: |
   client library.
 status: in-progress
 created: 2026-01-14
-scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
+pad: C:/Users/me/code/payments-service/.dev/caching-experiments
 tags:
   - owner:work
   - project:payments
@@ -288,8 +288,8 @@ The export is a point-in-time snapshot (always dated). Future possibility: versi
 orbit init                                  # Initialize orbit (create ~/.orbit/)
 
 orbit work new <title>                      # Create a new work entry (status: new); auto-selects it
-orbit work new <title> -s <name>            # ...and create a scratchpad folder named <name>
-orbit work new <title> -s <name> --no-dock  # ...force creation in CWD, ignoring the dock root
+orbit work new <title> -p <name>            # ...and create a pad folder named <name>
+orbit work new <title> -p <name> --no-dock  # ...force creation in CWD, ignoring the dock root
 orbit work new <title> --no-select          # Do not auto-select the new entry
 orbit work list                             # List work entries (filterable)
 orbit work list --project payments          # Filter by project
@@ -328,32 +328,32 @@ orbit work diary                             # Show work days for the selected e
 orbit work diary <id>                        # Show work days for a specific entry
 orbit work diary --since 2w                  # Filter by date range
 
-orbit work scratchpad <path>                 # Set scratchpad folder for selected entry
-orbit work scratchpad <id> <path>            # Set scratchpad for a specific entry
-orbit work scratchpad --clear                # Remove scratchpad from selected entry
-orbit work scratchpad --open                 # Open scratchpad folder in file explorer
+orbit work pad <path>                        # Set pad folder for selected entry
+orbit work pad <id> <path>                   # Set pad for a specific entry
+orbit work pad --clear                       # Remove pad from selected entry
+orbit work pad --open                        # Open pad folder in file explorer
 ```
 
-#### Scratchpad path resolution (for `-s <name>`)
+#### Pad path resolution (for `-p <name>`)
 
-The `-s <name>` flag on `orbit work new` creates a folder and stores its absolute path on the WorkEntry. Resolution rules:
+The `-p <name>` flag on `orbit work new` creates a folder and stores its absolute path on the WorkEntry. Resolution rules:
 
 1. If `<name>` is an **absolute path** → used as-is.
 2. If `<name>` is **relative** and the dock root is set (env or config) → resolved as `{dock-root}/<name>`.
 3. If `<name>` is **relative** and the dock root is unset → resolved as `<cwd>/<name>`.
-4. `--no-dock` forces rule 3 even when a dock root is set (useful for one-off work outside the central scratch tree).
+4. `--no-dock` forces rule 3 even when a dock root is set (useful for one-off work outside the central pad tree).
 
 Folder creation behaviour:
 
 - If the target directory **does not exist** → orbit creates it and records the path.
-- If the target directory **already exists** → orbit records the path anyway and prints a warning (`scratchpad path already exists: <path>`). This is intentional — it lets you point a new work entry at a pre-existing folder without erroring out, while still surfacing the situation so an accidental collision doesn't go unnoticed.
+- If the target directory **already exists** → orbit records the path anyway and prints a warning (`pad path already exists: <path>`). This is intentional — it lets you point a new work entry at a pre-existing folder without erroring out, while still surfacing the situation so an accidental collision doesn't go unnoticed.
 
-Without `-s`, no scratchpad is created (the user can still set one later with `orbit work scratchpad <path>`).
+Without `-p`, no pad is created (the user can still set one later with `orbit work pad <path>`).
 
 ```
-orbit work open                              # Open the selected entry's scratchpad + linked workspace
+orbit work open                              # Open the selected entry's pad + linked workspace
 orbit work open <id>                         # Same, for a specific entry
-orbit work open --scratchpad                 # Open scratchpad folder only (alias of `scratchpad --open`)
+orbit work open --pad                        # Open pad folder only (alias of `pad --open`)
 orbit work open --workspace                  # Open the linked .code-workspace only
 orbit work open --editor                     # Force opening in the configured editor
 
@@ -462,22 +462,22 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 
 - [x] Design doc finalized
 - [x] Project scaffold with core library and CLI entrypoint
-- [x] Database schema (WorkEntry table — incl. `scratchpad_path`, Tag table, join table, `AppState` singleton incl. `selected_work_entry_id`)
+- [x] Database schema (WorkEntry table — incl. `pad_path`, Tag table, join table, `AppState` singleton incl. `selected_work_entry_id`)
 - [x] `orbit init` — create `~/.orbit/`, `orbit.db`, and a default `config.yaml`
 - [x] `orbit work new <title>` — create a work entry (with optional `--description`, `--tag`); auto-selects the new entry
 - [x] `--no-select` flag on `orbit work new` — skip auto-select (for scripts)
-- [ ] `orbit work new <title> -s <name>` — also create a scratchpad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
-- [ ] `--no-root` flag on `orbit work new` — ignore `scratchpad.root` for this entry
-- [ ] Read `scratchpad.root` from `config.yaml`
-- [ ] `orbit work scratchpad <path>` / `--clear` / `--open` — manage the scratchpad after creation
+- [ ] `orbit work new <title> -p <name>` — also create a pad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
+- [ ] `--no-dock` flag on `orbit work new` — ignore the dock root for this entry
+- [ ] Read dock root from DB / env (already implemented via `orbit config pad set-root`)
+- [ ] `orbit work pad <path>` / `--clear` / `--open` — manage the pad after creation
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
   - [ ] Output formatting: --output table, json, plain
-- [x] `orbit work show <id>` — show a single work entry (incl. scratchpad path)
-- [ ] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the scratchpad folder on disk by default)
-- [ ] `orbit work delete <id> --purge` — also delete the scratchpad folder on disk (extra confirmation; refuses if the folder is outside `scratchpad.root` unless `--force` is passed)
-  <!-- TODO: when `scratchpad.root` is unset, every scratchpad lives at some arbitrary `<cwd>/<name>`, so there is no "safe zone" to compare against. In that mode `--purge` should always require `--force` (or always confirm path-by-path). Decide implementation behavior during M0. -->
+- [x] `orbit work show <id>` — show a single work entry (incl. pad path)
+- [ ] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the pad folder on disk by default)
+- [ ] `orbit work delete <id> --purge` — also delete the pad folder on disk (extra confirmation; refuses if the folder is outside the dock root unless `--force` is passed)
+  <!-- TODO: when the dock root is unset, every pad lives at some arbitrary `<cwd>/<name>`, so there is no "safe zone" to compare against. In that mode `--purge` should always require `--force` (or always confirm path-by-path). Decide implementation behavior during M0. -->
 - [x] `orbit work tag <id> <tag>` — add/remove tags
-- [ ] Unit tests for core CRUD and scratchpad path resolution
+- [ ] Unit tests for core CRUD and pad path resolution
 
 ### M1 — Daily driver
 > *"I can track my work through its lifecycle, link artifacts, and take quick notes."*
@@ -487,8 +487,8 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [ ] `orbit work show` (no args) — show the selected entry
 - [ ] `orbit link` — link artifacts (note, branch, repo, dir, file, URL) to a work entry
 - [ ] `orbit link` defaults to selected entry when `<id>` is omitted
-- [ ] `orbit work open [id]` — open the scratchpad and/or linked `.code-workspace` (with `--scratchpad`, `--workspace`, `--editor` flags)
-- [ ] `orbit work new <title>` shorthand flags: `--repo <path>`, `--workspace <path>`, `--note <path>`, `--project <name>`, `--owner <name>` — collapse the common "start a piece of work" flow into one command (see README walkthrough). The `-s <name>` scratchpad flag is already in M0.
+- [ ] `orbit work open [id]` — open the pad and/or linked `.code-workspace` (with `--pad`, `--workspace`, `--editor` flags)
+- [ ] `orbit work new <title>` shorthand flags: `--repo <path>`, `--workspace <path>`, `--note <path>`, `--project <name>`, `--owner <name>` — collapse the common "start a piece of work" flow into one command (see README walkthrough). The `-p <name>` pad flag is already in M0.
 - [ ] `orbit work log <message>` / `orbit work log list`
 - [ ] `orbit work today` / `orbit work diary`
 - [ ] Auto-recording of work days (on link, log, note actions)

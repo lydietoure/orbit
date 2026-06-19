@@ -1,7 +1,7 @@
 package db
 
 // This file is the storage gateway for the dock columns on the
-// `state` singleton: the configured scratchpad-root path and the
+// `state` singleton: the configured pad-root path and the
 // auto-create flag. Same layering as the other gateways here — no
 // validation, no env-var resolution, no business rules. Callers
 // hand us values that are already valid; the app layer is where
@@ -73,7 +73,7 @@ func UnsetDockRoot(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// GetDockAutoCreate returns whether scratchpad auto-creation is
+// GetDockAutoCreate returns whether pad auto-creation is
 // enabled. Defaults to false on a fresh install.
 func GetDockAutoCreate(ctx context.Context, db *sql.DB) (bool, error) {
 	var v int

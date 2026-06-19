@@ -47,7 +47,7 @@ var ErrWorkEntryTitleTaken = errors.New("a work entry with that title already ex
 // derive from this single source of truth.
 var workEntryColumnList = []string{
 	"id", "title", "description", "status",
-	"status_reason", "scratchpad_path", "created_at", "updated_at",
+	"status_reason", "pad_path", "created_at", "updated_at",
 }
 
 // workEntryColumns is the unqualified comma-joined column list,
@@ -79,18 +79,18 @@ func scanWorkEntry(s rowScanner) (core.WorkEntry, error) {
 	var (
 		e                          core.WorkEntry
 		status                     string
-		desc, reason, scratch      sql.NullString
+		desc, reason, pad          sql.NullString
 		createdAtStr, updatedAtStr string
 	)
 	if err := s.Scan(
-		&e.ID, &e.Title, &desc, &status, &reason, &scratch, &createdAtStr, &updatedAtStr,
+		&e.ID, &e.Title, &desc, &status, &reason, &pad, &createdAtStr, &updatedAtStr,
 	); err != nil {
 		return core.WorkEntry{}, err
 	}
 	e.Description = desc.String
 	e.Status = core.WorkEntryStatus(status)
 	e.StatusReason = reason.String
-	e.ScratchpadPath = scratch.String
+	e.PadPath = pad.String
 
 	createdAt, err := time.Parse(time.RFC3339Nano, createdAtStr)
 	if err != nil {
@@ -112,7 +112,7 @@ func scanWorkEntry(s rowScanner) (core.WorkEntry, error) {
 // UpdatedAt all set).
 func InsertWorkEntry(ctx context.Context, db *sql.DB, e core.WorkEntry) error {
 	const stmt = `INSERT INTO work_entries
-		(id, title, description, status, status_reason, scratchpad_path, created_at, updated_at)
+		(id, title, description, status, status_reason, pad_path, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := db.ExecContext(ctx, stmt,
@@ -121,7 +121,7 @@ func InsertWorkEntry(ctx context.Context, db *sql.DB, e core.WorkEntry) error {
 		nullableText(e.Description),
 		string(e.Status),
 		nullableText(e.StatusReason),
-		nullableText(e.ScratchpadPath),
+		nullableText(e.PadPath),
 		isoTime(e.CreatedAt),
 		isoTime(e.UpdatedAt),
 	)

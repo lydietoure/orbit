@@ -27,7 +27,7 @@ func main() {
 
 	diag.Setup(*verbose, *debug)
 
-	slog.Debug("resolved scratchpad path",
+	slog.Debug("resolved pad path",
 		"name", "payments-caching",
 		"abs", "C:/scratch/payments-caching",
 		"from_root", true,
@@ -36,7 +36,7 @@ func main() {
 		"id", "w-3a7f",
 		"title", "Add caching to payment flow",
 	)
-	slog.Warn("scratchpad path already exists",
+	slog.Warn("pad path already exists",
 		"path", "C:/scratch/payments-caching",
 	)
 	slog.Error("failed to open db",

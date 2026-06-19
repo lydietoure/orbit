@@ -46,11 +46,11 @@ func TestInsertWorkEntry_Persists(t *testing.T) {
 func TestInsertWorkEntry_AllFieldsRoundTrip(t *testing.T) {
 	db := newTestDB(t)
 	entry := makeValidEntry(t, core.NewWorkEntryParams{
-		Title:          "Investigate p99 spike",
-		Description:    "look at metrics in the last 24h",
-		Status:         core.StatusInProgress,
-		StatusReason:   "started today",
-		ScratchpadPath: "C:/scratch/p99",
+		Title:        "Investigate p99 spike",
+		Description:  "look at metrics in the last 24h",
+		Status:       core.StatusInProgress,
+		StatusReason: "started today",
+		PadPath:      "C:/scratch/p99",
 	})
 
 	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
@@ -59,14 +59,14 @@ func TestInsertWorkEntry_AllFieldsRoundTrip(t *testing.T) {
 
 	var (
 		gotTitle, gotStatus              string
-		gotDesc, gotReason, gotScratch   sql.NullString
+		gotDesc, gotReason, gotPad       sql.NullString
 		gotCreatedAtStr, gotUpdatedAtStr string
 	)
 	row := db.QueryRow(
-		`SELECT title, description, status, status_reason, scratchpad_path, created_at, updated_at
+		`SELECT title, description, status, status_reason, pad_path, created_at, updated_at
 		 FROM work_entries WHERE id = ?`, entry.ID,
 	)
-	if err := row.Scan(&gotTitle, &gotDesc, &gotStatus, &gotReason, &gotScratch, &gotCreatedAtStr, &gotUpdatedAtStr); err != nil {
+	if err := row.Scan(&gotTitle, &gotDesc, &gotStatus, &gotReason, &gotPad, &gotCreatedAtStr, &gotUpdatedAtStr); err != nil {
 		t.Fatalf("scan: %v", err)
 	}
 
@@ -82,8 +82,8 @@ func TestInsertWorkEntry_AllFieldsRoundTrip(t *testing.T) {
 	if !gotReason.Valid || gotReason.String != entry.StatusReason {
 		t.Errorf("status_reason = %+v, want %q", gotReason, entry.StatusReason)
 	}
-	if !gotScratch.Valid || gotScratch.String != entry.ScratchpadPath {
-		t.Errorf("scratchpad_path = %+v, want %q", gotScratch, entry.ScratchpadPath)
+	if !gotPad.Valid || gotPad.String != entry.PadPath {
+		t.Errorf("pad_path = %+v, want %q", gotPad, entry.PadPath)
 	}
 
 	// Timestamps round-trip via RFC3339Nano.
@@ -113,7 +113,7 @@ func TestInsertWorkEntry_EmptyOptionalsBecomeNull(t *testing.T) {
 		 WHERE id = ?
 		   AND description     IS NULL
 		   AND status_reason   IS NULL
-		   AND scratchpad_path IS NULL`,
+		   AND pad_path        IS NULL`,
 		entry.ID,
 	).Scan(&count); err != nil {
 		t.Fatalf("count nulls: %v", err)
@@ -189,11 +189,11 @@ func TestInsertWorkEntry_RejectsDuplicateTitleCaseInsensitive(t *testing.T) {
 func TestGetWorkEntry_Found(t *testing.T) {
 	db := newTestDB(t)
 	want := makeValidEntry(t, core.NewWorkEntryParams{
-		Title:          "Investigate p99 spike",
-		Description:    "look at metrics in the last 24h",
-		Status:         core.StatusInProgress,
-		StatusReason:   "started today",
-		ScratchpadPath: "C:/scratch/p99",
+		Title:        "Investigate p99 spike",
+		Description:  "look at metrics in the last 24h",
+		Status:       core.StatusInProgress,
+		StatusReason: "started today",
+		PadPath:      "C:/scratch/p99",
 	})
 	if err := InsertWorkEntry(context.Background(), db, want); err != nil {
 		t.Fatalf("InsertWorkEntry: %v", err)
@@ -206,7 +206,7 @@ func TestGetWorkEntry_Found(t *testing.T) {
 
 	if got.ID != want.ID || got.Title != want.Title ||
 		got.Description != want.Description || got.Status != want.Status ||
-		got.StatusReason != want.StatusReason || got.ScratchpadPath != want.ScratchpadPath {
+		got.StatusReason != want.StatusReason || got.PadPath != want.PadPath {
 		t.Errorf("entry fields mismatch:\n got=%+v\nwant=%+v", got, want)
 	}
 	if !got.CreatedAt.Equal(want.CreatedAt) {

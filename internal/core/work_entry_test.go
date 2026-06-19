@@ -45,11 +45,11 @@ func TestNewWorkEntry_Defaults(t *testing.T) {
 // is trimmed).
 func TestNewWorkEntry_PreservesAllFields(t *testing.T) {
 	p := NewWorkEntryParams{
-		Title:          "Investigate p99 spike",
-		Description:    "look at metrics in the last 24h",
-		Status:         StatusInProgress,
-		StatusReason:   "started today",
-		ScratchpadPath: "C:/scratch/p99",
+		Title:        "Investigate p99 spike",
+		Description:  "look at metrics in the last 24h",
+		Status:       StatusInProgress,
+		StatusReason: "started today",
+		PadPath:      "C:/scratch/p99",
 	}
 	entry, err := NewWorkEntry(p)
 	if err != nil {
@@ -67,8 +67,8 @@ func TestNewWorkEntry_PreservesAllFields(t *testing.T) {
 	if entry.StatusReason != p.StatusReason {
 		t.Errorf("status_reason = %q, want %q", entry.StatusReason, p.StatusReason)
 	}
-	if entry.ScratchpadPath != p.ScratchpadPath {
-		t.Errorf("scratchpad_path = %q, want %q", entry.ScratchpadPath, p.ScratchpadPath)
+	if entry.PadPath != p.PadPath {
+		t.Errorf("pad_path = %q, want %q", entry.PadPath, p.PadPath)
 	}
 }
 

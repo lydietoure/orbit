@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS work_entries (
     description     TEXT,
     status          TEXT NOT NULL DEFAULT 'new' COLLATE NOCASE,
     status_reason   TEXT,
-    scratchpad_path TEXT,
+    pad_path        TEXT,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_work_entry_tags_tag_id ON work_entry_tags(tag_id)
 -- Application state: a singleton row with id=1. Tracks the currently
 -- selected work entry (auto-cleared if it is deleted), the timestamp
 -- of the last lazy health check, and the user's "dock" preferences
--- (where scratchpads live, and whether they're auto-provisioned).
+-- (where pads live, and whether they're auto-provisioned).
 --
 -- dock_root NULL means "no dock configured"; the ORBIT_DOCK env var
 -- overrides this value at read time.

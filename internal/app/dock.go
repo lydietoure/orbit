@@ -1,14 +1,14 @@
 package app
 
 // This file is the use-case layer for "the dock": the configured
-// root directory where scratchpads live, plus the auto-create flag
+// root directory where pads live, plus the auto-create flag
 // that controls whether `work new` provisions per-entry subdirs
 // under it automatically.
 //
 // Resolution order for the root:
 //
 //  1. ORBIT_DOCK env var (if set and non-empty).
-//  2. The value persisted in the DB via `orbit config scratchpad set-root`.
+//  2. The value persisted in the DB via `orbit config pad set-root`.
 //  3. Unset — returned as the empty string with [DockRootUnset].
 //
 // Only the DB-stored value is mutable through the CLI; the env var
@@ -40,7 +40,7 @@ const (
 	// environment variable.
 	DockRootFromEnv
 	// DockRootFromConfig means the value came from the DB-stored
-	// `orbit config scratchpad set-root` value.
+	// `orbit config pad set-root` value.
 	DockRootFromConfig
 )
 
@@ -58,7 +58,7 @@ func (s DockRootSource) String() string {
 
 // ErrEmptyDockRoot is returned by [SetDockRoot] when the supplied
 // path is empty or whitespace-only. Use [UnsetDockRoot] to clear.
-var ErrEmptyDockRoot = errors.New("dock root path is empty; use `orbit config scratchpad unset-root` to clear")
+var ErrEmptyDockRoot = errors.New("dock root path is empty; use `orbit config pad unset-root` to clear")
 
 // GetDockRoot resolves the current dock root.
 //
@@ -134,7 +134,7 @@ func UnsetDockRoot(ctx context.Context) error {
 	return db.UnsetDockRoot(ctx, d)
 }
 
-// GetDockAutoCreate returns whether scratchpad auto-provisioning is
+// GetDockAutoCreate returns whether pad auto-provisioning is
 // enabled. The flag has no env override.
 func GetDockAutoCreate(ctx context.Context) (bool, error) {
 	d, closer, err := open()

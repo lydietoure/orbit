@@ -9,37 +9,37 @@ import (
 )
 
 // getCmdConfig builds `orbit config` and its subcommands. Today it
-// only carries the scratchpad/dock settings; future scalar prefs
-// (default editor, etc.) will hang off the same tree.
+// only carries the pad/dock settings; future scalar prefs (default
+// editor, etc.) will hang off the same tree.
 //
-// The command path here uses `scratchpad` (what users think of
-// when configuring this) while the thing being configured is
-// conceptually "the dock" (where scratchpads live). Help text and
-// the ORBIT_DOCK env var reflect the latter.
+// Vocabulary: a "pad" is the per-entry folder where you do
+// experimental work; "the dock" is the parent directory under which
+// pads live. The ORBIT_DOCK env var overrides the persisted dock
+// root at read time.
 func getCmdConfig() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "View and update orbit settings",
 	}
-	cmd.AddCommand(newConfigScratchpadCmd())
+	cmd.AddCommand(newConfigPadCmd())
 	return cmd
 }
 
-func newConfigScratchpadCmd() *cobra.Command {
+func newConfigPadCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "scratchpad",
-		Short: "Configure the dock — where scratchpads live, and how they're provisioned",
+		Use:   "pad",
+		Short: "Configure the dock — where pads live, and how they're provisioned",
 	}
 	cmd.AddCommand(
-		newConfigScratchpadGetRootCmd(),
-		newConfigScratchpadSetRootCmd(),
-		newConfigScratchpadUnsetRootCmd(),
-		newConfigScratchpadAutoCreateCmd(),
+		newConfigPadGetRootCmd(),
+		newConfigPadSetRootCmd(),
+		newConfigPadUnsetRootCmd(),
+		newConfigPadAutoCreateCmd(),
 	)
 	return cmd
 }
 
-func newConfigScratchpadGetRootCmd() *cobra.Command {
+func newConfigPadGetRootCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-root",
 		Short: "Show the current dock root and auto-create setting",
@@ -66,10 +66,10 @@ func newConfigScratchpadGetRootCmd() *cobra.Command {
 	}
 }
 
-func newConfigScratchpadSetRootCmd() *cobra.Command {
+func newConfigPadSetRootCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set-root <path>",
-		Short: "Set the dock root — the directory where scratchpads live",
+		Short: "Set the dock root — the directory where pads live",
 		Long: `Set the dock root.
 
 The path is absolutized at set time so subsequent reads are stable
@@ -87,7 +87,7 @@ variable, if set, still overrides this value at read time.`,
 	}
 }
 
-func newConfigScratchpadUnsetRootCmd() *cobra.Command {
+func newConfigPadUnsetRootCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unset-root",
 		Short: "Clear the dock root",
@@ -102,17 +102,17 @@ func newConfigScratchpadUnsetRootCmd() *cobra.Command {
 	}
 }
 
-func newConfigScratchpadAutoCreateCmd() *cobra.Command {
+func newConfigPadAutoCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "auto-create <true|false>",
-		Short: "Toggle automatic scratchpad provisioning under the dock root",
-		Long: `Toggle automatic scratchpad provisioning.
+		Short: "Toggle automatic pad provisioning under the dock root",
+		Long: `Toggle automatic pad provisioning.
 
-When true, ` + "`orbit work new`" + ` will create a scratchpad
+When true, ` + "`orbit work new`" + ` will create a pad
 subdirectory under the dock root for each new entry. When false
-(default), scratchpad paths must be passed explicitly via -s /
---scratchpad. Accepts the usual truthy/falsy forms: true, false,
-1, 0, yes, no, on, off (case-insensitive).`,
+(default), pad paths must be passed explicitly via -p / --pad.
+Accepts the usual truthy/falsy forms: true, false, 1, 0, yes, no,
+on, off (case-insensitive).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// strconv.ParseBool covers 1/0/t/f/T/F/true/false/TRUE/

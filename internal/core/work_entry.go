@@ -40,18 +40,18 @@ func (s WorkEntryStatus) Valid() bool {
 // Crockford base32 string; see [NewID] and docs/DATA_MODEL.md for the
 // encoding scheme.
 //
-// Optional text fields (Description, StatusReason, ScratchpadPath)
+// Optional text fields (Description, StatusReason, PadPath)
 // use the empty string to mean "absent" — the storage layer maps
 // empty to SQL NULL on write.
 type WorkEntry struct {
-	ID             string
-	Title          string
-	Description    string
-	Status         WorkEntryStatus
-	StatusReason   string
-	ScratchpadPath string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID           string
+	Title        string
+	Description  string
+	Status       WorkEntryStatus
+	StatusReason string
+	PadPath      string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 	// Tags is the alphabetically-sorted list of tag names attached
 	// to this entry. Populated by the storage layer on read; left
 	// nil by [NewWorkEntry] (tags are applied after insert).
@@ -72,9 +72,9 @@ type NewWorkEntryParams struct {
 	// StatusReason explains the status. Required when Status is
 	// [StatusAbandoned]; otherwise optional.
 	StatusReason string
-	// ScratchpadPath is an optional filesystem path to scratch work.
-	// Empty means absent.
-	ScratchpadPath string
+	// PadPath is an optional filesystem path to the pad — the
+	// per-entry folder for experimental/scratch work. Empty means absent.
+	PadPath string
 }
 
 // NewWorkEntry builds a fully-populated, validated [WorkEntry]. It
@@ -109,14 +109,14 @@ func NewWorkEntry(p NewWorkEntryParams) (WorkEntry, error) {
 
 	now := time.Now().UTC()
 	return WorkEntry{
-		ID:             NewID(),
-		Title:          title,
-		Description:    p.Description,
-		Status:         status,
-		StatusReason:   p.StatusReason,
-		ScratchpadPath: p.ScratchpadPath,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:           NewID(),
+		Title:        title,
+		Description:  p.Description,
+		Status:       status,
+		StatusReason: p.StatusReason,
+		PadPath:      p.PadPath,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}, nil
 }
 

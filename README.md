@@ -52,12 +52,13 @@ orbit status                # quick overview
 Orbit doesn't impose a folder layout — it indexes references you provide. A typical "starting a new piece of work" flow looks like this:
 
 ```sh
-# 1. Create the work entry and a scratchpad folder for it
-orbit work new "Add caching to payment flow" -s payments-caching
-# If `scratchpad.root` is set in ~/.orbit/config.yaml, this creates
-#   {scratchpad.root}/payments-caching/
+# 1. Create the work entry and a pad folder for it
+orbit work new "Add caching to payment flow" -p payments-caching
+# If a dock root is set (via `orbit config pad set-root` or ORBIT_DOCK),
+# this creates:
+#   {dock-root}/payments-caching/
 # Otherwise it creates ./payments-caching/ in the current directory.
-# Use --no-root to force CWD even when scratchpad.root is set.
+# Use --no-dock to force CWD even when a dock root is set.
 # The new entry is auto-selected (use --no-select to opt out).
 
 # 2. Link the things this work touches
@@ -86,9 +87,9 @@ orbit work diary w-3a7f     # timeline of days you touched it, annotated
 orbit work export w-3a7f    # dated YAML snapshot of the whole graph
 ```
 
-The core idea: **orbit holds the index, your repos / notes / scratchpad hold the substance.** Open the linked `.code-workspace` from VS Code (or run `orbit work scratchpad --open`) and resume work — orbit just knows where everything is.
+The core idea: **orbit holds the index, your repos / notes / pads hold the substance.** Open the linked `.code-workspace` from VS Code (or run `orbit work pad --open`) and resume work — orbit just knows where everything is.
 
-> **Coming soon:** a single `orbit work new <title> -s <name> --repo ... --workspace ... --note ...` to collapse steps 1–3 into one command, and `orbit work open [id]` to open the scratchpad and linked workspace from one command. Tracked in [docs/DESIGN.md](docs/DESIGN.md).
+> **Coming soon:** a single `orbit work new <title> -p <name> --repo ... --workspace ... --note ...` to collapse steps 1–3 into one command, and `orbit work open [id]` to open the pad and linked workspace from one command. Tracked in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Documentation
 

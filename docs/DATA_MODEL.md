@@ -56,7 +56,7 @@ erDiagram
         string description "optional"
         WorkEntryStatus status
         string status_reason "optional, required if abandoned"
-        string scratchpad_path "optional"
+        string pad_path "optional"
         timestamp created_at
         timestamp updated_at
     }
@@ -116,7 +116,7 @@ classDiagram
         +String description
         +WorkEntryStatus status
         +String statusReason
-        +String scratchpadPath
+        +String padPath
         +Timestamp createdAt
         +Timestamp updatedAt
         +List~Tag~ tags
@@ -212,7 +212,7 @@ The central entity. Represents a unit of work: a feature, bug, spike, or learnin
 | description | string | no | Longer explanation of what this work is about |
 | status | WorkEntryStatus | yes | Current lifecycle status (default: `NEW`) |
 | status_reason | string | no | Explanation for status (required when `ABANDONED`) |
-| scratchpad_path | string | no | Path to folder for experimental/scratch work |
+| pad_path | string | no | Path to folder for experimental/scratch work ("pad") |
 | created_at | timestamp | yes | When the entry was created |
 | updated_at | timestamp | yes | When the entry was last modified |
 

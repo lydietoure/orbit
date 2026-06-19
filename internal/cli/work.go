@@ -40,7 +40,7 @@ func getCmdWork() *cobra.Command {
 func newWorkNewCmd() *cobra.Command {
 	var (
 		description string
-		scratchpad  string
+		pad         string
 		tags        []string
 		noSelect    bool
 	)
@@ -50,11 +50,11 @@ func newWorkNewCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entry, err := app.CreateWork(cmd.Context(), app.CreateWorkParams{
-				Title:          args[0],
-				Description:    description,
-				ScratchpadPath: scratchpad,
-				Tags:           tags,
-				NoSelect:       noSelect,
+				Title:       args[0],
+				Description: description,
+				PadPath:     pad,
+				Tags:        tags,
+				NoSelect:    noSelect,
 			})
 			if err != nil {
 				return err
@@ -69,8 +69,8 @@ func newWorkNewCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&description, "description", "d", "",
 		"Longer explanation of this work")
-	cmd.Flags().StringVarP(&scratchpad, "scratchpad", "s", "",
-		"Path to a folder for experimental/scratch work on this entry")
+	cmd.Flags().StringVarP(&pad, "pad", "p", "",
+		"Path to the pad — the per-entry folder for experimental/scratch work")
 	cmd.Flags().StringSliceVarP(&tags, "tag", "t", nil,
 		"Tag to attach (repeatable, comma-separated)")
 	cmd.Flags().BoolVar(&noSelect, "no-select", false,
@@ -149,7 +149,7 @@ func printWorkEntry(w io.Writer, e core.WorkEntry) {
 		fmt.Fprintf(w, "Reason:       %s\n", e.StatusReason)
 	}
 	fmt.Fprintf(w, "Description:  %s\n", orNone(e.Description))
-	fmt.Fprintf(w, "Scratchpad:   %s\n", orNone(e.ScratchpadPath))
+	fmt.Fprintf(w, "Pad:          %s\n", orNone(e.PadPath))
 	fmt.Fprintf(w, "Tags:         %s\n", orNone(strings.Join(e.Tags, ", ")))
 	fmt.Fprintf(w, "Created:      %s\n", e.CreatedAt.UTC().Format(timeFmt))
 	fmt.Fprintf(w, "Updated:      %s\n", e.UpdatedAt.UTC().Format(timeFmt))

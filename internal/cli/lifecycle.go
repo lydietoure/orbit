@@ -53,7 +53,7 @@ var destroyCmd = &cobra.Command{
 for confirmation by default; pass --yes to skip the prompt or --dry-run
 to preview without deleting.
 
-Scratchpad folders are NOT touched.`,
+Pad folders are NOT touched.`,
 	Args: cobra.NoArgs,
 	RunE: destroyApplication,
 }

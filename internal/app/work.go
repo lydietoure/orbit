@@ -41,9 +41,9 @@ func resolveTargetID(ctx context.Context, d *sql.DB, id string) (string, error) 
 // CreateWorkParams is the input to [CreateWork]. Mirrors the cli flag
 // set; the use case doesn't care where the values came from.
 type CreateWorkParams struct {
-	Title          string
-	Description    string
-	ScratchpadPath string
+	Title       string
+	Description string
+	PadPath     string
 	// Tags is the optional list of tag names to attach. Each is
 	// normalized (lower-case, trim) via [core.NormalizeTagName]
 	// before insert; duplicates after normalization are deduped.
@@ -93,10 +93,10 @@ func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error)
 		status = core.StatusInProgress
 	}
 	entry, err := core.NewWorkEntry(core.NewWorkEntryParams{
-		Title:          p.Title,
-		Description:    p.Description,
-		ScratchpadPath: p.ScratchpadPath,
-		Status:         status,
+		Title:       p.Title,
+		Description: p.Description,
+		PadPath:     p.PadPath,
+		Status:      status,
 	})
 	if err != nil {
 		return core.WorkEntry{}, err
