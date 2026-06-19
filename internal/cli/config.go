@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -40,7 +41,8 @@ func newConfigDockCmd() *cobra.Command {
 }
 
 func newConfigDockGetCmd() *cobra.Command {
-	return &cobra.Command{
+	var raw bool
+	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Show the current dock root and auto-create setting",
 		Args:  cobra.NoArgs,
@@ -49,6 +51,20 @@ func newConfigDockGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			// Raw mode: just the bare path on stdout (for shell
+			// interpolation), nothing else. Unset → silent stdout,
+			// non-zero exit, brief stderr message via the returned
+			// error — so `path=$(orbit config dock get --raw)` is
+			// empty on unset and the caller can `if [ -z ... ]` it.
+			if raw {
+				if source == app.DockRootUnset {
+					return errors.New("dock root is unset")
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), root)
+				return nil
+			}
+
 			autoCreate, err := app.GetDockAutoCreate(cmd.Context())
 			if err != nil {
 				return err
@@ -64,6 +80,9 @@ func newConfigDockGetCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&raw, "raw", false,
+		"Print only the resolved dock root (no labels, no auto-create info); exits non-zero when unset")
+	return cmd
 }
 
 func newConfigDockSetCmd() *cobra.Command {
