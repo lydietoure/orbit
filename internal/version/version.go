@@ -1,16 +1,10 @@
 package version
 
-// Base and BuildMeta are set at build time via ldflags.
-var (
-	Base      = "dev"
-	BuildMeta = ""
-)
+// Version is set at build time via ldflags. Defaults to "dev" for
+// plain `go build` without flags.
+var Base = "dev"
 
-// String returns the full version string.
-// Tagged builds: "0.1.0", untagged: "0.1.0+a3f2b1c".
+// String returns the version string.
 func String() string {
-	if BuildMeta != "" {
-		return Base + "+" + BuildMeta
-	}
 	return Base
 }
