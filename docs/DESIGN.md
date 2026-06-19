@@ -471,13 +471,10 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] Read dock root from DB / env (already implemented via `orbit config dock set`)
 - [ ] `orbit work pad <path>` / `--clear` / `--open` — manage the pad after creation
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
-  - [ ] Output formatting: --output table, json, plain
 - [x] `orbit work show <id>` — show a single work entry (incl. pad path)
-- [ ] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the pad folder on disk by default)
-- [ ] `orbit work delete <id> --purge` — also delete the pad folder on disk (extra confirmation; refuses if the folder is outside the dock root unless `--force` is passed)
-  <!-- TODO: when the dock root is unset, every pad lives at some arbitrary `<cwd>/<name>`, so there is no "safe zone" to compare against. In that mode `--purge` should always require `--force` (or always confirm path-by-path). Decide implementation behavior during M0. -->
-- [x] `orbit work tag <id> <tag>` — add/remove tags
-- [ ] Unit tests for core CRUD and pad path resolution
+- [x] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the pad folder on disk by default; `--yes` skips the prompt)
+- [x] `orbit work delete <id> --purge` — also delete the pad folder on disk (combined confirmation; `--yes` skips it). The dock root gets no special treatment — it is just a convenience folder.- [x] `orbit work tag <id> <tag>` — add/remove tags
+- [x] Unit tests for core CRUD and pad path resolution
 
 ### M1 — Daily driver
 > *"I can track my work through its lifecycle, link artifacts, and take quick notes."*

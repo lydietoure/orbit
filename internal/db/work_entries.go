@@ -208,6 +208,34 @@ func ListWorkEntries(ctx context.Context, db *sql.DB) ([]core.WorkEntry, error) 
 	return out, nil
 }
 
+// DeleteWorkEntry removes the work_entries row with the given id.
+// Schema-level cascades take care of the side effects:
+//   - work_entry_tags rows referencing this entry are deleted
+//     (ON DELETE CASCADE).
+//   - state.selected_work_entry_id is set to NULL if it pointed
+//     here (ON DELETE SET NULL).
+//
+// The shared `tags` vocabulary is intentionally NOT touched —
+// tag rows are reused across entries and an orphaned tag is just
+// an unused label, not garbage.
+//
+// Returns a wrapped [ErrWorkEntryNotFound] if no row matched, so
+// callers can distinguish "already gone" from a real failure.
+func DeleteWorkEntry(ctx context.Context, db *sql.DB, id string) error {
+	res, err := db.ExecContext(ctx, `DELETE FROM work_entries WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete work entry %s: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete work entry %s: rows affected: %w", id, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: %s", ErrWorkEntryNotFound, id)
+	}
+	return nil
+}
+
 // nullableText returns nil for the empty string and s otherwise. Passing
 // nil to a SQL driver writes NULL; passing an empty string writes ”.
 // Using NULL keeps optional fields cleanly absent.

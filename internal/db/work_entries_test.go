@@ -281,3 +281,102 @@ func TestListWorkEntries_OrdersByCreatedAtDesc(t *testing.T) {
 		}
 	}
 }
+
+// TestDeleteWorkEntry_RemovesRow is the smoke test: a successful
+// delete makes the row vanish so a follow-up GET returns
+// ErrWorkEntryNotFound.
+func TestDeleteWorkEntry_RemovesRow(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "doomed"})
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+
+	if err := DeleteWorkEntry(context.Background(), db, entry.ID); err != nil {
+		t.Fatalf("DeleteWorkEntry: %v", err)
+	}
+
+	if _, err := GetWorkEntry(context.Background(), db, entry.ID); !errors.Is(err, ErrWorkEntryNotFound) {
+		t.Errorf("post-delete GetWorkEntry err = %v, want ErrWorkEntryNotFound", err)
+	}
+}
+
+// TestDeleteWorkEntry_NotFound: deleting a non-existent id must
+// return a wrapped ErrWorkEntryNotFound so callers can treat
+// "already gone" distinctly from a driver failure.
+func TestDeleteWorkEntry_NotFound(t *testing.T) {
+	db := newTestDB(t)
+
+	err := DeleteWorkEntry(context.Background(), db, "nope0")
+	if !errors.Is(err, ErrWorkEntryNotFound) {
+		t.Errorf("err = %v, want ErrWorkEntryNotFound", err)
+	}
+}
+
+// TestDeleteWorkEntry_CascadesToTagJoinRows verifies the
+// work_entry_tags ON DELETE CASCADE: removing an entry must also
+// remove its join rows, but must NOT remove the tag rows
+// themselves — they are a shared vocabulary.
+func TestDeleteWorkEntry_CascadesToTagJoinRows(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "tagged"})
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+	for _, name := range []string{"alpha", "beta"} {
+		if err := AddTagToWorkEntry(context.Background(), db, entry.ID, name); err != nil {
+			t.Fatalf("AddTagToWorkEntry(%s): %v", name, err)
+		}
+	}
+
+	if err := DeleteWorkEntry(context.Background(), db, entry.ID); err != nil {
+		t.Fatalf("DeleteWorkEntry: %v", err)
+	}
+
+	var joinCount int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM work_entry_tags WHERE work_entry_id = ?`, entry.ID,
+	).Scan(&joinCount); err != nil {
+		t.Fatalf("count join rows: %v", err)
+	}
+	if joinCount != 0 {
+		t.Errorf("join rows after delete = %d, want 0 (cascade should have cleared them)", joinCount)
+	}
+
+	var tagCount int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM tags WHERE name IN ('alpha', 'beta')`,
+	).Scan(&tagCount); err != nil {
+		t.Fatalf("count tag rows: %v", err)
+	}
+	if tagCount != 2 {
+		t.Errorf("tag vocabulary rows after delete = %d, want 2 (tags must not cascade)", tagCount)
+	}
+}
+
+// TestDeleteWorkEntry_ClearsSelectedPointer verifies that the
+// state.selected_work_entry_id FK with ON DELETE SET NULL fires
+// when we delete the currently selected entry. Otherwise the
+// selection would silently dangle.
+func TestDeleteWorkEntry_ClearsSelectedPointer(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "selected-then-deleted"})
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+	if err := SelectWorkEntry(context.Background(), db, entry.ID); err != nil {
+		t.Fatalf("SelectWorkEntry: %v", err)
+	}
+
+	if err := DeleteWorkEntry(context.Background(), db, entry.ID); err != nil {
+		t.Fatalf("DeleteWorkEntry: %v", err)
+	}
+
+	var sel sql.NullString
+	if err := db.QueryRow(`SELECT selected_work_entry_id FROM state WHERE id = 1`).Scan(&sel); err != nil {
+		t.Fatalf("read selected: %v", err)
+	}
+	if sel.Valid {
+		t.Errorf("selected_work_entry_id = %q after delete, want NULL", sel.String)
+	}
+}

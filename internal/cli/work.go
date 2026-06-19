@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/lydietoure/orbit/internal/app"
@@ -20,8 +21,9 @@ import (
 // orchestration live in the app package; cli is just I/O glue.
 func getCmdWork() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "work",
-		Short: "Manage work entries",
+		Use:     "work",
+		Aliases: []string{"w"},
+		Short:   "Manage work entries",
 	}
 	cmd.AddCommand(
 		newWorkNewCmd(),
@@ -168,14 +170,105 @@ func orNone(s string) string {
 
 //endregion
 
+// region work delete
 func newWorkDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		yes   bool
+		purge bool
+	)
+	cmd := &cobra.Command{
 		Use:   "delete [id]",
-		Short: "Delete a work entry",
-		Args:  cobra.ExactArgs(1),
+		Short: "Delete a work entry (defaults to the selected entry)",
+		Long: "Delete a work entry from the database.\n\n" +
+			"If [id] is omitted, the currently selected entry is deleted.\n\n" +
+			"By default the pad folder on disk is left in place; the path is " +
+			"reported so you can decide what to do with it. Pass --purge to " +
+			"also remove the pad folder (irreversible).\n\n" +
+			"Prompts for confirmation by default; pass --yes to skip the prompt " +
+			"(scripts, piped input).",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := ""
+			if len(args) == 1 {
+				id = args[0]
+			}
+
+			// Pre-load so the prompt names the entry the user is
+			// about to drop (and so a typo'd id — or an unset
+			// selection — fails before the prompt rather than
+			// after a confused "yes"). The follow-up DeleteWork
+			// call re-loads inside the transaction-less window;
+			// that's fine — see the note on app.DeleteWork.
+			preview, err := app.ShowWork(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+
+			// Combine the DB delete and the optional pad delete
+			// into one prompt: the user is making one decision
+			// ("trash this whole thing"), not two.
+			willPurge := purge && preview.PadPath != ""
+			if !yes {
+				question := fmt.Sprintf("Delete work entry %s %q?", preview.ID, preview.Title)
+				if willPurge {
+					question = fmt.Sprintf(
+						"Delete work entry %s %q AND remove pad folder %s?",
+						preview.ID, preview.Title, preview.PadPath,
+					)
+				}
+				ok, err := confirm(cmd.InOrStdin(), cmd.ErrOrStderr(), question)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					fmt.Fprintln(cmd.OutOrStdout(), "Aborted.")
+					return nil
+				}
+			}
+
+			deleted, err := app.DeleteWork(cmd.Context(), preview.ID)
+			if err != nil {
+				return err
+			}
+
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "Deleted %s: %q\n", deleted.ID, deleted.Title)
+
+			// Pad disposition. The DB row is gone at this point;
+			// the pad folder is on disk only and its removal is a
+			// best-effort step — but if the user explicitly asked
+			// for --purge and we couldn't deliver, surface that
+			// as an error so the exit code reflects reality and
+			// the path is shown for manual cleanup.
+			if deleted.PadPath == "" {
+				return nil
+			}
+			if !purge {
+				fmt.Fprintf(out,
+					"Pad folder at %s left in place (use --purge to also remove it).\n",
+					deleted.PadPath)
+				return nil
+			}
+			if err := os.RemoveAll(deleted.PadPath); err != nil {
+				return fmt.Errorf(
+					"work entry deleted, but failed to remove pad folder %s: %w",
+					deleted.PadPath, err,
+				)
+			}
+			fmt.Fprintf(out, "Removed pad folder at %s\n", deleted.PadPath)
+			return nil
+		},
 	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false,
+		"Skip the confirmation prompt (intended for scripts)")
+	cmd.Flags().BoolVar(&purge, "purge", false,
+		"Also remove the pad folder from disk (irreversible)")
+	return cmd
 }
 
+// endregion
+
+// region work select
 func newWorkSelectCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "select <id>",
@@ -249,6 +342,9 @@ func newWorkForgetCmd() *cobra.Command {
 	}
 }
 
+//endregion
+
+// region work tag
 func newWorkTagCmd() *cobra.Command {
 	var remove bool
 	cmd := &cobra.Command{
@@ -283,3 +379,9 @@ func newWorkTagCmd() *cobra.Command {
 		"Remove the tag instead of adding it")
 	return cmd
 }
+
+// TODO: add `work tag list`
+
+//endregion
+
+// region work pad

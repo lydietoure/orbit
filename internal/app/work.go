@@ -206,6 +206,41 @@ func ShowWork(ctx context.Context, id string) (core.WorkEntry, error) {
 	return db.GetWorkEntry(ctx, d, target)
 }
 
+// DeleteWork removes the work entry with the given id and returns
+// the entry as it existed immediately before the delete — so the
+// caller can echo the title and the (now-orphaned) pad path.
+// Wraps [db.ErrWorkEntryNotFound] if id doesn't match any row.
+//
+// Load and delete run in two SQL statements (not a transaction),
+// which leaves a tiny window in which a concurrent delete could
+// win between the GET and the DELETE. In that case our DELETE
+// affects zero rows and the function returns ErrWorkEntryNotFound
+// — same outcome as if the id had been wrong all along. Orbit is
+// a single-user, no-daemon tool so this race is essentially never
+// taken; revisit if/when the app package grows a tx helper.
+//
+// The pad folder on disk is intentionally NOT touched here — that
+// behavior belongs to `orbit work delete --purge` and lives in
+// the CLI layer (separate commit). Schema-level cascades take
+// care of the tag-join rows and the selected-entry pointer; the
+// shared `tags` vocabulary is preserved.
+func DeleteWork(ctx context.Context, id string) (core.WorkEntry, error) {
+	d, closer, err := open()
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	defer closer()
+
+	entry, err := db.GetWorkEntry(ctx, d, id)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	if err := db.DeleteWorkEntry(ctx, d, id); err != nil {
+		return core.WorkEntry{}, err
+	}
+	return entry, nil
+}
+
 // SelectWork sets the given entry as the current focus and returns
 // the (full) entry it just selected, so the caller can confirm by
 // printing it. Returns [db.ErrWorkEntryNotFound] if id doesn't match
