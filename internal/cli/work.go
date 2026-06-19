@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/lydietoure/orbit/internal/app"
 	"github.com/lydietoure/orbit/internal/core"
-	"github.com/lydietoure/orbit/internal/db"
 	"github.com/spf13/cobra"
 )
 
-// newWorkCmd builds the `orbit work` parent command and its subcommands.
+// getCmdWork builds the `orbit work` parent command and its subcommands.
 // Each subcommand is built by its own constructor so that flags, RunE
 // closures, and the variables they bind to all live in one function —
-// no package-level flag globals, no init()-side-effect coupling between
-// files.
+// no package-level flag globals, no init()-side-effect coupling.
+//
+// RunEs in this file are intentionally tiny: parse args, call ONE
+// app function, format the result. All DB lifecycle and
+// orchestration live in the app package; cli is just I/O glue.
 func getCmdWork() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "work",
@@ -30,7 +33,7 @@ func getCmdWork() *cobra.Command {
 	return cmd
 }
 
-//region work new
+// region work new
 func newWorkNewCmd() *cobra.Command {
 	var (
 		description string
@@ -41,21 +44,12 @@ func newWorkNewCmd() *cobra.Command {
 		Short: "Create a new work entry",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, closer, err := openDB()
-			if err != nil {
-				return err
-			}
-			defer closer()
-
-			entry, err := core.NewWorkEntry(core.NewWorkEntryParams{
+			entry, err := app.CreateWork(cmd.Context(), app.CreateWorkParams{
 				Title:          args[0],
 				Description:    description,
 				ScratchpadPath: scratchpad,
 			})
 			if err != nil {
-				return err
-			}
-			if err := db.InsertWorkEntry(cmd.Context(), d, entry); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Created %s: %q\n", entry.ID, entry.Title)
@@ -71,20 +65,14 @@ func newWorkNewCmd() *cobra.Command {
 
 //endregion
 
-//region work list
+// region work list
 func newWorkListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List work entries",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, closer, err := openDB()
-			if err != nil {
-				return err
-			}
-			defer closer()
-
-			entries, err := db.ListWorkEntries(cmd.Context(), d)
+			entries, err := app.ListWork(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -107,24 +95,17 @@ func newWorkListCmd() *cobra.Command {
 
 //endregion
 
-//region work show
+// region work show
 func newWorkShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show details of a work entry",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, closer, err := openDB()
+			entry, err := app.ShowWork(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
-			defer closer()
-
-			entry, err := db.GetWorkEntry(cmd.Context(), d, args[0])
-			if err != nil {
-				return err
-			}
-
 			printWorkEntry(cmd.OutOrStdout(), entry)
 			return nil
 		},
@@ -171,20 +152,8 @@ func newWorkSelectCmd() *cobra.Command {
 		Short: "Select a work entry as the current focus",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, closer, err := openDB()
+			entry, err := app.SelectWork(cmd.Context(), args[0])
 			if err != nil {
-				return err
-			}
-			defer closer()
-
-			// Fetch first so we can (a) return a clean
-			// ErrWorkEntryNotFound instead of a raw FK error and
-			// (b) print the title back as a confirmation.
-			entry, err := db.GetWorkEntry(cmd.Context(), d, args[0])
-			if err != nil {
-				return err
-			}
-			if err := db.SelectWorkEntry(cmd.Context(), d, entry.ID); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Selected %s: %q\n", entry.ID, entry.Title)
@@ -199,13 +168,7 @@ func newWorkForgetCmd() *cobra.Command {
 		Short: "Clear the currently selected work entry",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			d, closer, err := openDB()
-			if err != nil {
-				return err
-			}
-			defer closer()
-
-			if err := db.ForgetSelectedWorkEntry(cmd.Context(), d); err != nil {
+			if err := app.ForgetSelectedWork(cmd.Context()); err != nil {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "Cleared selected work entry.")

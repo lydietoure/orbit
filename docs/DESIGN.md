@@ -451,8 +451,8 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 > *"I can create a piece of work that has a real home on disk, and inspect it from the terminal."*
 
 - [x] Design doc finalized
-- [ ] Project scaffold with core library and CLI entrypoint
-- [ ] Database schema (WorkEntry table — incl. `scratchpad_path`, Tag table, join table, `AppState` singleton incl. `selected_work_entry_id`)
+- [x] Project scaffold with core library and CLI entrypoint
+- [x] Database schema (WorkEntry table — incl. `scratchpad_path`, Tag table, join table, `AppState` singleton incl. `selected_work_entry_id`)
 - [ ] `orbit init` — create `~/.orbit/`, `orbit.db`, and a default `config.yaml`
 - [ ] `orbit work new <title>` — create a work entry (with optional `--description`, `--tag`); auto-selects the new entry
 - [ ] `--no-select` flag on `orbit work new` — skip auto-select (for scripts)
@@ -460,8 +460,9 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [ ] `--no-root` flag on `orbit work new` — ignore `scratchpad.root` for this entry
 - [ ] Read `scratchpad.root` from `config.yaml`
 - [ ] `orbit work scratchpad <path>` / `--clear` / `--open` — manage the scratchpad after creation
-- [ ] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
-- [ ] `orbit work show <id>` — show a single work entry (incl. scratchpad path)
+- [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
+  - [ ] Output formatting: --output table, json, plain
+- [x] `orbit work show <id>` — show a single work entry (incl. scratchpad path)
 - [ ] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the scratchpad folder on disk by default)
 - [ ] `orbit work delete <id> --purge` — also delete the scratchpad folder on disk (extra confirmation; refuses if the folder is outside `scratchpad.root` unless `--force` is passed)
   <!-- TODO: when `scratchpad.root` is unset, every scratchpad lives at some arbitrary `<cwd>/<name>`, so there is no "safe zone" to compare against. In that mode `--purge` should always require `--force` (or always confirm path-by-path). Decide implementation behavior during M0. -->
