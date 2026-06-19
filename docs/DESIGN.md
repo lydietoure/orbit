@@ -453,9 +453,9 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] Design doc finalized
 - [x] Project scaffold with core library and CLI entrypoint
 - [x] Database schema (WorkEntry table — incl. `scratchpad_path`, Tag table, join table, `AppState` singleton incl. `selected_work_entry_id`)
-- [ ] `orbit init` — create `~/.orbit/`, `orbit.db`, and a default `config.yaml`
-- [ ] `orbit work new <title>` — create a work entry (with optional `--description`, `--tag`); auto-selects the new entry
-- [ ] `--no-select` flag on `orbit work new` — skip auto-select (for scripts)
+- [x] `orbit init` — create `~/.orbit/`, `orbit.db`, and a default `config.yaml`
+- [x] `orbit work new <title>` — create a work entry (with optional `--description`, `--tag`); auto-selects the new entry
+- [x] `--no-select` flag on `orbit work new` — skip auto-select (for scripts)
 - [ ] `orbit work new <title> -s <name>` — also create a scratchpad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
 - [ ] `--no-root` flag on `orbit work new` — ignore `scratchpad.root` for this entry
 - [ ] Read `scratchpad.root` from `config.yaml`
@@ -466,14 +466,14 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [ ] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the scratchpad folder on disk by default)
 - [ ] `orbit work delete <id> --purge` — also delete the scratchpad folder on disk (extra confirmation; refuses if the folder is outside `scratchpad.root` unless `--force` is passed)
   <!-- TODO: when `scratchpad.root` is unset, every scratchpad lives at some arbitrary `<cwd>/<name>`, so there is no "safe zone" to compare against. In that mode `--purge` should always require `--force` (or always confirm path-by-path). Decide implementation behavior during M0. -->
-- [ ] `orbit work tag <id> <tag>` — add/remove tags
+- [x] `orbit work tag <id> <tag>` — add/remove tags
 - [ ] Unit tests for core CRUD and scratchpad path resolution
 
 ### M1 — Daily driver
 > *"I can track my work through its lifecycle, link artifacts, and take quick notes."*
 
 - [ ] `orbit work status <id> <status>` (with `--reason`), `orbit work close`
-- [ ] `orbit work select <id>` / `orbit work forget` — set/clear the selected entry
+- [x] `orbit work select <id>` / `orbit work forget` — set/clear the selected entry
 - [ ] `orbit work show` (no args) — show the selected entry
 - [ ] `orbit link` — link artifacts (note, branch, repo, dir, file, URL) to a work entry
 - [ ] `orbit link` defaults to selected entry when `<id>` is omitted

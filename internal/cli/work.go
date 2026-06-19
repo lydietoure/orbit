@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/lydietoure/orbit/internal/app"
 	"github.com/lydietoure/orbit/internal/core"
@@ -29,6 +30,7 @@ func getCmdWork() *cobra.Command {
 		newWorkDeleteCmd(),
 		newWorkSelectCmd(),
 		newWorkForgetCmd(),
+		newWorkTagCmd(),
 	)
 	return cmd
 }
@@ -38,6 +40,7 @@ func newWorkNewCmd() *cobra.Command {
 	var (
 		description string
 		scratchpad  string
+		tags        []string
 		noSelect    bool
 	)
 	cmd := &cobra.Command{
@@ -49,6 +52,7 @@ func newWorkNewCmd() *cobra.Command {
 				Title:          args[0],
 				Description:    description,
 				ScratchpadPath: scratchpad,
+				Tags:           tags,
 				NoSelect:       noSelect,
 			})
 			if err != nil {
@@ -66,6 +70,8 @@ func newWorkNewCmd() *cobra.Command {
 		"Longer explanation of this work")
 	cmd.Flags().StringVarP(&scratchpad, "scratchpad", "s", "",
 		"Path to a folder for experimental/scratch work on this entry")
+	cmd.Flags().StringSliceVarP(&tags, "tag", "t", nil,
+		"Tag to attach (repeatable, comma-separated)")
 	cmd.Flags().BoolVar(&noSelect, "no-select", false,
 		"Don't auto-select the new entry (useful in scripts)")
 	return cmd
@@ -91,10 +97,16 @@ func newWorkListCmd() *cobra.Command {
 				return nil
 			}
 			for _, e := range entries {
-				// Compact one-line format: <id>  <status>  <title>
+				// Compact one-line format: <id>  <status>  <title>  [tags]
 				// IDs are fixed-width (5 chars); statuses vary so we
 				// pad to the longest enum value ("in-progress" = 11).
-				fmt.Fprintf(out, "%s  %-11s  %s\n", e.ID, e.Status, e.Title)
+				// Tags are appended in brackets only when present so the
+				// common (untagged) case stays clean.
+				line := fmt.Sprintf("%s  %-11s  %s", e.ID, e.Status, e.Title)
+				if len(e.Tags) > 0 {
+					line += "  [" + strings.Join(e.Tags, ", ") + "]"
+				}
+				fmt.Fprintln(out, line)
 			}
 			return nil
 		},
@@ -133,6 +145,7 @@ func printWorkEntry(w io.Writer, e core.WorkEntry) {
 	}
 	fmt.Fprintf(w, "Description:  %s\n", orNone(e.Description))
 	fmt.Fprintf(w, "Scratchpad:   %s\n", orNone(e.ScratchpadPath))
+	fmt.Fprintf(w, "Tags:         %s\n", orNone(strings.Join(e.Tags, ", ")))
 	fmt.Fprintf(w, "Created:      %s\n", e.CreatedAt.UTC().Format(timeFmt))
 	fmt.Fprintf(w, "Updated:      %s\n", e.UpdatedAt.UTC().Format(timeFmt))
 }
@@ -183,4 +196,33 @@ func newWorkForgetCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newWorkTagCmd() *cobra.Command {
+	var remove bool
+	cmd := &cobra.Command{
+		Use:   "tag <id> <tag>",
+		Short: "Add (or with --remove, drop) a tag on a work entry",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, rawTag := args[0], args[1]
+			if remove {
+				name, err := app.UntagWork(cmd.Context(), id, rawTag)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Removed tag %q from %s\n", name, id)
+				return nil
+			}
+			name, err := app.TagWork(cmd.Context(), id, rawTag)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Added tag %q to %s\n", name, id)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&remove, "remove", false,
+		"Remove the tag instead of adding it")
+	return cmd
 }

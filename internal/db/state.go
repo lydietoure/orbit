@@ -51,7 +51,8 @@ func ForgetSelectedWorkEntry(ctx context.Context, db *sql.DB) error {
 
 // GetSelectedWorkEntry returns the currently selected work entry, or
 // [ErrNoSelectedEntry] if none is selected. A single JOIN pulls the
-// entry in one round trip rather than two queries.
+// entry in one round trip rather than two queries; the entry's Tags
+// slice is then populated via a follow-up.
 func GetSelectedWorkEntry(ctx context.Context, db *sql.DB) (core.WorkEntry, error) {
 	stmt := `SELECT ` + prefixedWorkEntryColumns("w") + `
 		FROM state s
@@ -65,5 +66,10 @@ func GetSelectedWorkEntry(ctx context.Context, db *sql.DB) (core.WorkEntry, erro
 	if err != nil {
 		return core.WorkEntry{}, fmt.Errorf("get selected work entry: %w", err)
 	}
+	tags, err := ListTagsForWorkEntry(ctx, db, e.ID)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	e.Tags = tags
 	return e, nil
 }

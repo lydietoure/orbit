@@ -77,10 +77,10 @@ type rowScanner interface {
 // inverse of nullableText), and timestamps are parsed from RFC3339Nano.
 func scanWorkEntry(s rowScanner) (core.WorkEntry, error) {
 	var (
-		e                                  core.WorkEntry
-		status                             string
-		desc, reason, scratch              sql.NullString
-		createdAtStr, updatedAtStr         string
+		e                          core.WorkEntry
+		status                     string
+		desc, reason, scratch      sql.NullString
+		createdAtStr, updatedAtStr string
 	)
 	if err := s.Scan(
 		&e.ID, &e.Title, &desc, &status, &reason, &scratch, &createdAtStr, &updatedAtStr,
@@ -155,6 +155,8 @@ func isUniqueTitleViolation(err error) bool {
 
 // GetWorkEntry returns the work entry with the given ID. If no such
 // entry exists, the returned error wraps [ErrWorkEntryNotFound].
+// The returned entry's Tags slice is populated via a follow-up query
+// (alphabetical; nil if untagged).
 func GetWorkEntry(ctx context.Context, db *sql.DB, id string) (core.WorkEntry, error) {
 	stmt := `SELECT ` + workEntryColumns + ` FROM work_entries WHERE id = ?`
 	row := db.QueryRowContext(ctx, stmt, id)
@@ -165,12 +167,18 @@ func GetWorkEntry(ctx context.Context, db *sql.DB, id string) (core.WorkEntry, e
 	if err != nil {
 		return core.WorkEntry{}, fmt.Errorf("get work entry %s: %w", id, err)
 	}
+	tags, err := ListTagsForWorkEntry(ctx, db, e.ID)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	e.Tags = tags
 	return e, nil
 }
 
 // ListWorkEntries returns every work entry, most recently created
 // first. An empty table is not an error — the returned slice is
-// simply empty.
+// simply empty. Each entry's Tags slice is loaded via a follow-up
+// query; N+1 is fine at M0 scale.
 func ListWorkEntries(ctx context.Context, db *sql.DB) ([]core.WorkEntry, error) {
 	stmt := `SELECT ` + workEntryColumns + ` FROM work_entries ORDER BY created_at DESC, id DESC`
 	rows, err := db.QueryContext(ctx, stmt)
@@ -189,6 +197,13 @@ func ListWorkEntries(ctx context.Context, db *sql.DB) ([]core.WorkEntry, error) 
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list work entries: %w", err)
+	}
+	for i := range out {
+		tags, err := ListTagsForWorkEntry(ctx, db, out[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Tags = tags
 	}
 	return out, nil
 }

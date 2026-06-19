@@ -52,6 +52,10 @@ type WorkEntry struct {
 	ScratchpadPath string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	// Tags is the alphabetically-sorted list of tag names attached
+	// to this entry. Populated by the storage layer on read; left
+	// nil by [NewWorkEntry] (tags are applied after insert).
+	Tags []string
 }
 
 // NewWorkEntryParams holds the user-supplied input for a new work
