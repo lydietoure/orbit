@@ -87,7 +87,10 @@ func NewWorkEntry(p NewWorkEntryParams) (WorkEntry, error) {
 		return WorkEntry{}, errors.New("work entry title is required")
 	}
 
-	// TODO: If another task already created an entry with this title, we should reject it. 
+	// Title uniqueness (case-insensitive) is enforced by the DB layer
+	// via a UNIQUE COLLATE NOCASE constraint on work_entries.title.
+	// Checking here would require I/O and would race with concurrent
+	// inserts; let the storage layer be the source of truth.
 
 	status := p.Status
 	if status == "" {

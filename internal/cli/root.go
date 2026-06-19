@@ -24,6 +24,11 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "orbit",
 	Short: "Your developer universe, mapped and in motion",
+	// Don't dump the usage text on RunE/arg errors -- it buries the
+	// actual error in a wall of flags. Users who want help can ask
+	// for it with --help; runtime failures should just say what
+	// went wrong. (Cobra still prints the error itself.)
+	SilenceUsage: true,
 	// PersistentPreRunE on the root runs before every subcommand. If any
 	// subcommand ever defines its own PersistentPreRunE, it must call
 	// diag.Setup itself (cobra does NOT chain inherited PreRuns).

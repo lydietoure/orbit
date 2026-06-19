@@ -142,6 +142,47 @@ func TestInsertWorkEntry_RejectsDuplicateID(t *testing.T) {
 	}
 }
 
+// TestInsertWorkEntry_RejectsDuplicateTitle locks in the contract for
+// the title UNIQUE constraint: a second insert with the same title
+// returns ErrWorkEntryTitleTaken (errors.Is-friendly) so callers can
+// surface a user-friendly message without parsing driver error text.
+func TestInsertWorkEntry_RejectsDuplicateTitle(t *testing.T) {
+	db := newTestDB(t)
+	first := makeValidEntry(t, core.NewWorkEntryParams{Title: "Refactor auth flow"})
+	if err := InsertWorkEntry(context.Background(), db, first); err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+
+	dup := makeValidEntry(t, core.NewWorkEntryParams{Title: "Refactor auth flow"})
+	err := InsertWorkEntry(context.Background(), db, dup)
+	if err == nil {
+		t.Fatal("expected duplicate-title insert to fail, got nil")
+	}
+	if !errors.Is(err, ErrWorkEntryTitleTaken) {
+		t.Errorf("err = %v, want ErrWorkEntryTitleTaken", err)
+	}
+}
+
+// TestInsertWorkEntry_RejectsDuplicateTitleCaseInsensitive verifies
+// the COLLATE NOCASE part of the constraint — "Foo" and "foo" must
+// collide. Otherwise users could accidentally create near-duplicates.
+func TestInsertWorkEntry_RejectsDuplicateTitleCaseInsensitive(t *testing.T) {
+	db := newTestDB(t)
+	first := makeValidEntry(t, core.NewWorkEntryParams{Title: "Refactor Auth Flow"})
+	if err := InsertWorkEntry(context.Background(), db, first); err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+
+	dup := makeValidEntry(t, core.NewWorkEntryParams{Title: "refactor auth flow"})
+	err := InsertWorkEntry(context.Background(), db, dup)
+	if err == nil {
+		t.Fatal("expected case-insensitive duplicate to fail, got nil")
+	}
+	if !errors.Is(err, ErrWorkEntryTitleTaken) {
+		t.Errorf("err = %v, want ErrWorkEntryTitleTaken", err)
+	}
+}
+
 // TestGetWorkEntry_Found round-trips a full entry through the
 // database, exercising scanWorkEntry's NULL handling and timestamp
 // parsing in one go.

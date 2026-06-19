@@ -9,9 +9,14 @@
 -- here, so they apply to every open.
 
 -- Work entries: the central entity.
+--
+-- title carries UNIQUE COLLATE NOCASE so duplicate titles are
+-- rejected at the storage layer regardless of casing ("Foo" and
+-- "foo" collide). Enforcing in the schema keeps the check
+-- race-safe; an app-level pre-query would have a TOCTOU window.
 CREATE TABLE IF NOT EXISTS work_entries (
     id              TEXT PRIMARY KEY,
-    title           TEXT NOT NULL,
+    title           TEXT NOT NULL UNIQUE COLLATE NOCASE,
     description     TEXT,
     status          TEXT NOT NULL DEFAULT 'new' COLLATE NOCASE,
     status_reason   TEXT,

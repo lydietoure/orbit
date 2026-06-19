@@ -23,14 +23,23 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lydietoure/orbit/internal/core"
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // ErrWorkEntryNotFound is returned by [GetWorkEntry] when no row
 // matches the requested ID. Use errors.Is to detect it.
 var ErrWorkEntryNotFound = errors.New("work entry not found")
+
+// ErrWorkEntryTitleTaken is returned by [InsertWorkEntry] when the
+// UNIQUE COLLATE NOCASE constraint on work_entries.title rejects the
+// insert because another entry already uses that title (case-
+// insensitive match). Use errors.Is to detect it.
+var ErrWorkEntryTitleTaken = errors.New("a work entry with that title already exists")
 
 // workEntryColumns is the canonical column list for SELECTs that map
 // onto a core.WorkEntry. Kept in one place so the column order stays
@@ -98,9 +107,31 @@ func InsertWorkEntry(ctx context.Context, db *sql.DB, e core.WorkEntry) error {
 		isoTime(e.UpdatedAt),
 	)
 	if err != nil {
+		if isUniqueTitleViolation(err) {
+			return fmt.Errorf("%w: %q", ErrWorkEntryTitleTaken, e.Title)
+		}
 		return fmt.Errorf("insert work entry: %w", err)
 	}
 	return nil
+}
+
+// isUniqueTitleViolation reports whether err is a SQLite UNIQUE
+// constraint failure specifically on work_entries.title. Other UNIQUE
+// failures (e.g., PRIMARY KEY collision on id) take a different
+// extended code (SQLITE_CONSTRAINT_PRIMARYKEY) and pass through
+// unchanged so they read as the generic insert error they are.
+func isUniqueTitleViolation(err error) bool {
+	var serr *sqlite.Error
+	if !errors.As(err, &serr) {
+		return false
+	}
+	if serr.Code() != sqlite3.SQLITE_CONSTRAINT_UNIQUE {
+		return false
+	}
+	// The driver's message embeds the column. Matching on it scopes
+	// the sentinel to title violations specifically; a future UNIQUE
+	// on another column won't get silently mis-translated.
+	return strings.Contains(serr.Error(), "work_entries.title")
 }
 
 // GetWorkEntry returns the work entry with the given ID. If no such
