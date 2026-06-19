@@ -177,6 +177,7 @@ classDiagram
         PR
         WORKITEM
         REPO
+        DIR
         FILE
         URL
         CUSTOM
@@ -255,8 +256,9 @@ A reference to something linked to a work entry.
 - `BRANCH` — Git branch name
 - `PR` — Pull request URL
 - `WORKITEM` — Issue or work item URL (ADO, GitHub Issues, etc.)
-- `REPO` — Path to a local repository
-- `FILE` — Path to a local file or folder
+- `REPO` — Path to a local git repository
+- `DIR` — Path to a local directory (non-repo: docs folders, design assets, etc.)
+- `FILE` — Path to a local file (e.g., `.code-workspace`, a single doc)
 - `URL` — Any other URL (documentation, wiki, etc.)
 - `CUSTOM` — User-defined freeform reference
 
