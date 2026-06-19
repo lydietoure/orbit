@@ -38,6 +38,18 @@ tasks:
     desc: "Remove build artifacts"
     cmd: rm -rf dist/
 
+  # Live run
+  run:
+    desc: |
+      Run orbit from source.
+      Pass arguments to orbit after `--`, e.g.:
+        task run -- init
+        task run -- -v init
+    cmds:
+      - go run ./cmd/orbit {{.CLI_ARGS}}
+
+  # Smoke testing: 
+
   smoke:
     desc: |
       Run orbit against ORBIT_HOME (set in .env or on CLI).
