@@ -9,9 +9,22 @@ tasks:
 
   build:
     desc: "Build the orbit binary"
+    vars:
+      BASE_VERSION:
+        sh: cat VERSION.txt | tr -d '[:space:]'
+      BUILD_META:
+        sh: |
+          if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
+            echo ""
+          else
+            echo "$(git rev-parse --short HEAD)$(git diff --quiet || echo '-dirty')"
+          fi
+      LDFLAGS: >-
+        -X github.com/lydietoure/orbit/internal/version.Base={{.BASE_VERSION}}
+        -X github.com/lydietoure/orbit/internal/version.BuildMeta={{.BUILD_META}}
     cmds:
       - mkdir -p dist
-      - go build -o dist/orbit ./cmd/orbit
+      - go build -ldflags "{{.LDFLAGS}}" -o dist/orbit ./cmd/orbit
 
   test:
     desc: "Run all tests"

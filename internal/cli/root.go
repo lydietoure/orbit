@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/lydietoure/orbit/internal/diag"
+	"github.com/lydietoure/orbit/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.Version = version.String()
+
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false,
 		"Enable verbose (info-level) logging (or set ORBIT_VERBOSE=1)")
 	rootCmd.PersistentFlags().BoolVar(&flagDebug, "debug", false,
