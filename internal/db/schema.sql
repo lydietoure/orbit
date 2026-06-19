@@ -45,12 +45,21 @@ CREATE TABLE IF NOT EXISTS work_entry_tags (
 CREATE INDEX IF NOT EXISTS idx_work_entry_tags_tag_id ON work_entry_tags(tag_id);
 
 -- Application state: a singleton row with id=1. Tracks the currently
--- selected work entry (auto-cleared if it is deleted) and the timestamp
--- of the last lazy health check.
+-- selected work entry (auto-cleared if it is deleted), the timestamp
+-- of the last lazy health check, and the user's "dock" preferences
+-- (where scratchpads live, and whether they're auto-provisioned).
+--
+-- dock_root NULL means "no dock configured"; the ORBIT_DOCK env var
+-- overrides this value at read time.
+-- dock_auto_create is stored as 0/1 (SQLite has no native bool) with
+-- a CHECK so accidental writes of other ints fail loudly.
 CREATE TABLE IF NOT EXISTS state (
     id                     INTEGER PRIMARY KEY CHECK (id = 1),
     selected_work_entry_id TEXT REFERENCES work_entries(id) ON DELETE SET NULL,
-    last_health_check      TEXT
+    last_health_check      TEXT,
+    dock_root              TEXT,
+    dock_auto_create       INTEGER NOT NULL DEFAULT 0
+                           CHECK (dock_auto_create IN (0, 1))
 );
 
 INSERT OR IGNORE INTO state (id) VALUES (1);

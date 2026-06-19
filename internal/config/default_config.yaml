@@ -3,17 +3,8 @@
 # This file is created by `orbit init`. Edit and re-run any orbit
 # command to apply your changes. Comments and formatting are preserved
 # only if you edit by hand — orbit never rewrites this file.
-
-# ---------------------------------------------------------------------
-# scratchpad: where `orbit work new` creates per-task folders
-# ---------------------------------------------------------------------
-scratchpad:
-  # Root directory under which scratchpad folders are created.
-  # If unset (or empty), `orbit work new` will not create a scratchpad
-  # folder unless you pass --scratchpad / -s explicitly.
-  #
-  # Examples:
-  #   root: ~/scratch
-  #   root: /home/me/work/scratchpads
-  #   root: C:\Users\me\scratch
-  root:
+#
+# Mutable settings (the dock root, auto-create, etc.) are managed via
+# `orbit config ...` and stored in the database, not here. This file
+# is reserved for bootstrap-time defaults that don't make sense to
+# expose as runtime commands.

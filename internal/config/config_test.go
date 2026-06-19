@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"path/filepath"
 	"testing"
 )
@@ -52,16 +51,6 @@ func TestDefault_NonEmpty(t *testing.T) {
 	b := Default()
 	if len(b) == 0 {
 		t.Fatal("Default() returned empty bytes")
-	}
-}
-
-func TestDefault_MentionsScratchpadRoot(t *testing.T) {
-	b := Default()
-	if !bytes.Contains(b, []byte("scratchpad:")) {
-		t.Error("Default() missing 'scratchpad:' section")
-	}
-	if !bytes.Contains(b, []byte("root:")) {
-		t.Error("Default() missing 'root:' key")
 	}
 }
 

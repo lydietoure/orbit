@@ -34,6 +34,7 @@ go vet ./...
 | Variable        | Purpose                                                     |
 |-----------------|-------------------------------------------------------------|
 | `ORBIT_HOME`    | Override the orbit home directory (default `~/.orbit`)      |
+| `ORBIT_DOCK`    | Override the dock root (scratchpad parent dir); beats the persisted `orbit config scratchpad set-root` value |
 | `ORBIT_VERBOSE` | Equivalent to `--verbose` / `-v` (truthy: `1`, `true`, …)   |
 | `ORBIT_DEBUG`   | Equivalent to `--debug` (implies verbose)                   |
 

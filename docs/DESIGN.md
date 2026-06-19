@@ -174,7 +174,7 @@ WorkEntry: "Add caching to payment flow"
 ```
 ~/.orbit/
   orbit.db          # single source of truth for all structured data
-  config.yaml       # user preferences (default editor, scratchpad root, etc.)
+  config.yaml       # hand-edited bootstrap defaults (orbit never rewrites this)
 ```
 
 - `orbit.db` stores WorkEntries, Artifacts, Notes (as path references), Tags, and all relationships.
@@ -182,18 +182,28 @@ WorkEntry: "Add caching to payment flow"
 - **Repos are artifacts.** A WorkEntry can link to one or more repo paths. Multiple WorkEntries can reference the same repo.
 - Orbit never moves, copies, or creates files outside `~/.orbit/` unless explicitly asked (e.g., a future `orbit work note --create` convenience command).
 
-### Optional `scratchpad.root`
+### The dock
 
 Orbit does **not** impose a folder layout for scratchpads. By default, the user passes an explicit path to `orbit work scratchpad <path>`.
 
-For convenience, the user can opt in to a single "home for scratchpads" by setting `scratchpad.root` in `config.yaml`:
+For convenience, the user can opt in to a single "home for scratchpads" — the **dock** — via the CLI:
 
-```yaml
-scratchpad:
-  root: C:/Users/me/code/orbit-scratch    # optional; absent by default
+```
+orbit config scratchpad set-root <path>     # Set the dock root (absolutized at set time)
+orbit config scratchpad get-root            # Show the resolved root + auto-create state
+orbit config scratchpad unset-root          # Clear the persisted root
+orbit config scratchpad auto-create <bool>  # Toggle auto-provisioning of per-entry subdirs
 ```
 
-When set, `orbit work new <title> -s <name>` resolves `<name>` against `scratchpad.root` and creates the folder there. When unset, `-s <name>` creates `<name>` in the current working directory. See [CLI Design](#6-cli-design) for the full resolution rules.
+The dock root is **persisted in `orbit.db`** (on the singleton `state` row), not in `config.yaml`. The `config.yaml` file is hand-edited and orbit never rewrites it; mutable settings belong in the database.
+
+Resolution order at read time:
+
+1. `ORBIT_DOCK` environment variable (if set and non-empty) — absolutized.
+2. The DB-persisted value from `orbit config scratchpad set-root`.
+3. Unset — callers treat scratchpad paths as bare CWD-relative names.
+
+When set, `orbit work new <title> -s <name>` resolves `<name>` against the dock root and creates the folder there. When unset, `-s <name>` creates `<name>` in the current working directory. With `auto-create true`, `orbit work new` provisions a subdirectory under the dock root automatically (no `-s` needed). See [CLI Design](#6-cli-design) for the full resolution rules.
 
 
 Advantages:
@@ -279,7 +289,7 @@ orbit init                                  # Initialize orbit (create ~/.orbit/
 
 orbit work new <title>                      # Create a new work entry (status: new); auto-selects it
 orbit work new <title> -s <name>            # ...and create a scratchpad folder named <name>
-orbit work new <title> -s <name> --no-root  # ...force creation in CWD, ignoring scratchpad.root
+orbit work new <title> -s <name> --no-dock  # ...force creation in CWD, ignoring the dock root
 orbit work new <title> --no-select          # Do not auto-select the new entry
 orbit work list                             # List work entries (filterable)
 orbit work list --project payments          # Filter by project
@@ -329,9 +339,9 @@ orbit work scratchpad --open                 # Open scratchpad folder in file ex
 The `-s <name>` flag on `orbit work new` creates a folder and stores its absolute path on the WorkEntry. Resolution rules:
 
 1. If `<name>` is an **absolute path** → used as-is.
-2. If `<name>` is **relative** and `scratchpad.root` is set in `config.yaml` → resolved as `{scratchpad.root}/<name>`.
-3. If `<name>` is **relative** and `scratchpad.root` is unset → resolved as `<cwd>/<name>`.
-4. `--no-root` forces rule 3 even when `scratchpad.root` is set (useful for one-off work outside the central scratch tree).
+2. If `<name>` is **relative** and the dock root is set (env or config) → resolved as `{dock-root}/<name>`.
+3. If `<name>` is **relative** and the dock root is unset → resolved as `<cwd>/<name>`.
+4. `--no-dock` forces rule 3 even when a dock root is set (useful for one-off work outside the central scratch tree).
 
 Folder creation behaviour:
 

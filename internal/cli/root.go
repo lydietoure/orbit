@@ -52,6 +52,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(destroyCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(getCmdConfig())
 	rootCmd.AddCommand(getCmdWork())
 	rootCmd.AddCommand(linkCmd)
 }
