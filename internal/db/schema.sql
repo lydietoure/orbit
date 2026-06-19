@@ -1,3 +1,51 @@
--- Orbit database schema
--- See docs/DATA_MODEL.md for conceptual model
--- See docs/TECH_STACK.md for implementation details
+-- Orbit database schema (M0)
+--
+-- See docs/DATA_MODEL.md for the conceptual model and docs/TECH_STACK.md
+-- for implementation details. This file is embedded into the binary via
+-- //go:embed and applied on every DB open. Statements use
+-- CREATE TABLE IF NOT EXISTS so re-applying is a no-op on existing DBs.
+--
+-- Pragmas (foreign_keys, journal_mode) are set on the connection, not
+-- here, so they apply to every open.
+
+-- Work entries: the central entity.
+CREATE TABLE IF NOT EXISTS work_entries (
+    id              TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    description     TEXT,
+    status          TEXT NOT NULL DEFAULT 'new' COLLATE NOCASE,
+    status_reason   TEXT,
+    scratchpad_path TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_entries_status     ON work_entries(status);
+CREATE INDEX IF NOT EXISTS idx_work_entries_created_at ON work_entries(created_at);
+
+-- Tags: free-form labels (including the project:* and owner:* conventions).
+-- The UNIQUE constraint on `name` implicitly creates a lookup index.
+CREATE TABLE IF NOT EXISTS tags (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+-- Many-to-many join between work entries and tags.
+CREATE TABLE IF NOT EXISTS work_entry_tags (
+    work_entry_id TEXT    NOT NULL REFERENCES work_entries(id) ON DELETE CASCADE,
+    tag_id        INTEGER NOT NULL REFERENCES tags(id)         ON DELETE CASCADE,
+    PRIMARY KEY (work_entry_id, tag_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_entry_tags_tag_id ON work_entry_tags(tag_id);
+
+-- Application state: a singleton row with id=1. Tracks the currently
+-- selected work entry (auto-cleared if it is deleted) and the timestamp
+-- of the last lazy health check.
+CREATE TABLE IF NOT EXISTS state (
+    id                     INTEGER PRIMARY KEY CHECK (id = 1),
+    selected_work_entry_id TEXT REFERENCES work_entries(id) ON DELETE SET NULL,
+    last_health_check      TEXT
+);
+
+INSERT OR IGNORE INTO state (id) VALUES (1);
