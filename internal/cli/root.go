@@ -42,6 +42,7 @@ func init() {
 		"Enable debug logging, implies --verbose (or set ORBIT_DEBUG=1)")
 
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(destroyCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(workCmd)
 	rootCmd.AddCommand(linkCmd)
