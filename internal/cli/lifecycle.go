@@ -58,11 +58,6 @@ Pad folders are NOT touched.`,
 	RunE: destroyApplication,
 }
 
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Quick overview of active work entries and selected entry",
-}
-
 func init() {
 	initCmd.Flags().BoolVarP(&flagInitDryRun, "dry-run", "n", false,
 		"Print what would happen without making any changes")
