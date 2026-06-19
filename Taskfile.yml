@@ -1,8 +1,8 @@
 version: "3"
 
-# Load .env (gitignored) for local-only knobs like SMOKE_TEST_DIR or
-# ORBIT_VERBOSE. CLI overrides (`task smoke SMOKE_TEST_DIR=...`) win.
-# SMOKE_TEST_DIR has NO default — it must come from .env or the CLI.
+# Load .env (gitignored) for local-only knobs like SMOKE_HOME or
+# ORBIT_VERBOSE. CLI overrides (`task smoke SMOKE_HOME=...`) win.
+# SMOKE_HOME has NO default — it must come from .env or the CLI.
 dotenv: ['.env']
 
 tasks:
@@ -33,28 +33,31 @@ tasks:
 
   smoke:
     desc: |
-      Run orbit against ORBIT_HOME=$SMOKE_TEST_DIR (set in .env or on CLI).
+      Run orbit against ORBIT_HOME=$SMOKE_HOME (set in .env or on CLI).
       Pass arguments to orbit after `--`, e.g.:
         task smoke -- init
         task smoke -- -v init
-        task smoke SMOKE_TEST_DIR=.local/foo -- init
+        task smoke SMOKE_HOME=.local/foo -- init
+
+      ORBIT_HOME is NOT pre-created — orbit owns its own home dir
+      lifecycle (created by `init`, removed by `destroy`). That keeps
+      smoke runs honest about the "not initialized" error path.
     requires:
-      vars: [SMOKE_TEST_DIR]
+      vars: [SMOKE_HOME]
     env:
-      ORBIT_HOME: '{{.SMOKE_TEST_DIR}}'
+      ORBIT_HOME: '{{.SMOKE_HOME}}'
     cmds:
-      - mkdir -p "{{.SMOKE_TEST_DIR}}"
       - go run ./cmd/orbit {{.CLI_ARGS}}
 
   smoke:clean:
-    desc: "Empty the smoke test ORBIT_HOME directory (the directory itself is preserved)"
+    desc: "Remove the smoke test ORBIT_HOME directory entirely (orbit init will recreate it)"
     requires:
-      vars: [SMOKE_TEST_DIR]
+      vars: [SMOKE_HOME]
     cmds:
-      - rm -rf "{{.SMOKE_TEST_DIR}}"/*
+      - rm -rf "{{.SMOKE_HOME}}"
 
   smoke:reset:
-    desc: "Empty SMOKE_TEST_DIR and re-run `orbit init` (forwards extra args after --)"
+    desc: "Empty SMOKE_HOME and re-run `orbit init` (forwards extra args after --)"
     cmds:
       - task: smoke:clean
       - task: smoke
