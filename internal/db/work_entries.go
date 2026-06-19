@@ -41,10 +41,29 @@ var ErrWorkEntryNotFound = errors.New("work entry not found")
 // insensitive match). Use errors.Is to detect it.
 var ErrWorkEntryTitleTaken = errors.New("a work entry with that title already exists")
 
-// workEntryColumns is the canonical column list for SELECTs that map
-// onto a core.WorkEntry. Kept in one place so the column order stays
-// in lockstep with scanWorkEntry.
-const workEntryColumns = `id, title, description, status, status_reason, scratchpad_path, created_at, updated_at`
+// workEntryColumnList is the canonical column order for SELECTs that
+// map onto a core.WorkEntry. Order must stay in lockstep with
+// scanWorkEntry; both [workEntryColumns] and [prefixedWorkEntryColumns]
+// derive from this single source of truth.
+var workEntryColumnList = []string{
+	"id", "title", "description", "status",
+	"status_reason", "scratchpad_path", "created_at", "updated_at",
+}
+
+// workEntryColumns is the unqualified comma-joined column list,
+// e.g. for `SELECT <columns> FROM work_entries`.
+var workEntryColumns = strings.Join(workEntryColumnList, ", ")
+
+// prefixedWorkEntryColumns returns the column list qualified by the
+// given table alias (e.g. `w.id, w.title, ...`). Needed for JOINs
+// where unqualified `id` would be ambiguous.
+func prefixedWorkEntryColumns(alias string) string {
+	out := make([]string, len(workEntryColumnList))
+	for i, c := range workEntryColumnList {
+		out[i] = alias + "." + c
+	}
+	return strings.Join(out, ", ")
+}
 
 // rowScanner is the subset of *sql.Row / *sql.Rows that scanWorkEntry
 // needs. Lets us share one mapping helper between single-row reads

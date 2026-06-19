@@ -167,9 +167,29 @@ func newWorkDeleteCmd() *cobra.Command {
 
 func newWorkSelectCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "select [id]",
+		Use:   "select <id>",
 		Short: "Select a work entry as the current focus",
 		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, closer, err := openDB()
+			if err != nil {
+				return err
+			}
+			defer closer()
+
+			// Fetch first so we can (a) return a clean
+			// ErrWorkEntryNotFound instead of a raw FK error and
+			// (b) print the title back as a confirmation.
+			entry, err := db.GetWorkEntry(cmd.Context(), d, args[0])
+			if err != nil {
+				return err
+			}
+			if err := db.SelectWorkEntry(cmd.Context(), d, entry.ID); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Selected %s: %q\n", entry.ID, entry.Title)
+			return nil
+		},
 	}
 }
 
@@ -177,5 +197,19 @@ func newWorkForgetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "forget",
 		Short: "Clear the currently selected work entry",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			d, closer, err := openDB()
+			if err != nil {
+				return err
+			}
+			defer closer()
+
+			if err := db.ForgetSelectedWorkEntry(cmd.Context(), d); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Cleared selected work entry.")
+			return nil
+		},
 	}
 }
