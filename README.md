@@ -22,7 +22,7 @@ Written in Go. Local-first. CLI-first. LLM-ready.
 
 ### Prerequisites
 
-- [Go 1.24+](https://go.dev/dl/)
+- [Go 1.25+](https://go.dev/dl/)
 - [Task](https://taskfile.dev/) (optional, for build tasks)
 
 ### Build
