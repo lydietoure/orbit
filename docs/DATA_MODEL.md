@@ -25,7 +25,7 @@ Orbit persists its data in a local relational database. The data model consists 
 
 ## Design Principles
 
-1. **Human-friendly IDs:** WorkEntry uses short readable IDs (e.g., `w-a3f2`). Other entities use opaque auto-generated identifiers not exposed to users.
+1. **Short sortable IDs:** WorkEntry uses 5-character base32 IDs (e.g., `m2k7a`) that encode a time prefix so newer entries sort after older ones. See [ID Generation](#id-generation). Other entities use opaque auto-generated identifiers not exposed to users.
 
 2. **Timestamps:** All timestamps use ISO8601 format (`2026-02-10T14:32:00Z`) for unambiguous sorting and display.
 
@@ -51,7 +51,7 @@ erDiagram
     AppState |o--o| WorkEntry : selects
 
     WorkEntry {
-        string id PK "e.g., w-a3f2"
+        string id PK "5-char base32, e.g. m2k7a"
         string title
         string description "optional"
         WorkEntryStatus status
@@ -207,7 +207,7 @@ The central entity. Represents a unit of work: a feature, bug, spike, or learnin
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | string | yes | Human-friendly unique identifier (e.g., `w-a3f2`) |
+| id | string | yes | Short sortable identifier (e.g., `m2k7a`) |
 | title | string | yes | Short descriptive title |
 | description | string | no | Longer explanation of what this work is about |
 | status | WorkEntryStatus | yes | Current lifecycle status (default: `NEW`) |
@@ -320,14 +320,40 @@ Singleton application state.
 
 ## ID Generation
 
-Work entry IDs should be:
-- **Short** — easy to type and remember
-- **Unique** — no collisions in typical personal use
-- **Prefixed** — `w-` prefix makes them recognizable
+WorkEntry IDs are 5-character strings using Crockford base32 (digits +
+lowercase letters, skipping the visually ambiguous `i`, `l`, `o`, `u`).
+Each character encodes 5 bits, so the full ID is **25 bits**, split as:
 
-Example format: `w-` followed by 4 random hexadecimal characters (e.g., `w-a3f2`).
+| Bits | Component | Purpose |
+|---|---|---|
+| 15 | **time prefix** | hours since the epoch — newer entries sort after older ones |
+| 10 | **random suffix** | disambiguates entries created in the same hour |
 
-This provides 65,536 possible IDs — sufficient for personal use. The prefix can be extended if needed.
+The alphabet is: `0123456789abcdefghjkmnpqrstvwxyz`.
+
+The epoch is **2026-01-01T00:00:00Z**. The 15-bit time field wraps after
+about 3.7 years, after which strict chronological sort is no longer
+guaranteed across the wrap boundary (still strictly sortable *within*
+any single 3.7-year window). When that becomes a real concern, the ID
+length can be extended to 6 characters by prepending a `0` to existing
+IDs without breaking anything.
+
+The 10 random bits give 1024 distinct IDs per hour bucket, which is
+orders of magnitude more than a personal user will create in an hour
+— collision risk is negligible for the intended use.
+
+Example IDs (illustrative, chronological):
+
+```
+m2k7a   (today, 11am)
+m2k9q   (today, 11am, another entry)
+m2kqr   (today, 12pm)
+m2nb3   (tomorrow)
+```
+
+Random bits are sourced from `math/rand/v2` (non-cryptographic; fine
+for personal IDs). Other entities (Tag, Artifact, Note, LogEntry,
+WorkDay) use opaque auto-incrementing integer IDs not exposed to users.
 
 ---
 
@@ -335,7 +361,7 @@ This provides 65,536 possible IDs — sufficient for personal use. The prefix ca
 
 | Constraint | Description |
 |------------|-------------|
-| WorkEntry.id | Unique, human-friendly |
+| WorkEntry.id | Unique, 5-char Crockford base32 |
 | Tag.name | Unique |
 | WorkDay(work_entry_id, date) | Unique together — one day per entry |
 | AppState | Singleton — exactly one row |

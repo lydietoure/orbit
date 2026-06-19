@@ -64,10 +64,10 @@ A WorkEntry has a **status** and an optional **reason** (free text explaining wh
 | `new` | *(none)* | Just created, not yet started |
 | `in-progress` | *(none)* | Actively being worked on |
 | `completed` | *(none)* | Done |
-| `abandoned` | *(required)* | Dropped — reason explains why (e.g., "descoped", "superseded by #w-8b2c") |
+| `abandoned` | *(required)* | Dropped — reason explains why (e.g., "descoped", "superseded by #m2k7a") |
 
 - `orbit work new` sets status to `new`.
-- `orbit work close` sets status to `completed` (or `abandoned --reason "..."`)
+- `orbit work close` sets status to `completed` (or `abandoned --reason "..."`).
 - `orbit work status <id> <status>` sets any status explicitly, with an optional `--reason`.
 - Reason defaults are sensible (empty for happy-path transitions), but `abandoned` requires a reason so you remember *why* you dropped it.
 
@@ -104,8 +104,8 @@ Work days can be recorded:
 The diary view assembles a chronological timeline of work days, annotated with what orbit knows happened each day:
 
 ```
-$ orbit work diary w-3a7f
-Work Entry: Add caching to payment flow (w-3a7f)
+$ orbit work diary m2k7a
+Work Entry: Add caching to payment flow (m2k7a)
 
   2026-01-20  (log: "set up redis cluster locally")
   2026-01-21  (log: "paired with Sam on invalidation logic")
@@ -222,13 +222,13 @@ Example output:
 ```yaml
 # orbit work export: "Add caching to payment flow"
 # exported: 2026-02-09T14:32:00
-id: w-3a7f
+id: m2k7a
 title: "Add caching to payment flow"
 description: |
   Introduce Redis caching layer for the payment lookup path
   to reduce p99 latency. Spans payments-service and the shared
   client library.
-status: active
+status: in-progress
 created: 2026-01-14
 scratchpad: C:/Users/me/code/payments-service/.dev/caching-experiments
 tags:
@@ -288,7 +288,7 @@ orbit work list --tag caching               # Filter by any tag
 orbit work show <id>                        # Show a work entry and all linked artifacts/notes
 orbit work show                             # Show selected work entry (if any)
 orbit work close <id>                       # Complete a work entry (status: completed)
-orbit work close <id> --abandon --reason .. # Abandon with reason
+orbit work close <id> --abandon --reason .. # Abandon with reason (status: abandoned)
 orbit work status <id> <status>             # Set status explicitly (--reason optional)
 orbit work tag <id> <tag>                   # Add a tag (e.g., caching, perf)
 orbit work tag <id> <tag> --remove          # Remove a tag
