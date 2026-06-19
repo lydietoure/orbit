@@ -469,7 +469,8 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] `orbit work new <title> -p <name>` — also create a pad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
 - [x] `--no-dock` flag on `orbit work new` — ignore the dock root for this entry
 - [x] Read dock root from DB / env (already implemented via `orbit config dock set`)
-- [ ] `orbit work pad <path>` / `--clear` / `--open` — manage the pad after creation
+- [x] `orbit work pad show/get/set/clear` — manage the pad after creation
+- [ ] `orbit work pad open` — open the pad in `$EDITOR` / file explorer *(deferred to M1)*
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
 - [x] `orbit work show <id>` — show a single work entry (incl. pad path)
 - [x] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the pad folder on disk by default; `--yes` skips the prompt)

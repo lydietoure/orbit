@@ -410,6 +410,7 @@ func newWorkPadCmd() *cobra.Command {
 	cmd.AddCommand(
 		newWorkPadGetCmd(),
 		newWorkPadSetCmd(),
+		newWorkPadClearCmd(),
 		newWorkPadShowCmd(),
 	)
 	return cmd
@@ -451,7 +452,9 @@ func newWorkPadSetCmd() *cobra.Command {
 			"resolution rules as `orbit work new -p`: a bare name resolves " +
 			"under the dock root, an absolute or `./`-prefixed path is used " +
 			"as-is. The directory is provisioned if it doesn't exist; if it " +
-			"already exists, it's adopted as-is with a note.",
+			"already exists, it's adopted as-is with a note.\n\n" +
+			"To remove the pad pointer (without deleting the folder on disk) " +
+			"use `orbit work pad clear`.",
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Two-arg form: <id> <path>. One-arg form: just <path>,
@@ -482,6 +485,30 @@ func newWorkPadSetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noDock, "no-dock", false,
 		"Ignore the dock root and resolve <path> relative to the current directory")
 	return cmd
+}
+
+func newWorkPadClearCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "clear [id]",
+		Short: "Clear the pad pointer on a work entry (defaults to the selected entry); does NOT touch the folder on disk",
+		Long: "Remove the pad reference from a work entry. The directory on " +
+			"disk is intentionally left alone — disk removal belongs to " +
+			"`orbit work delete --purge`. Re-attach a pad later with " +
+			"`orbit work pad set`.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := ""
+			if len(args) == 1 {
+				id = args[0]
+			}
+			entry, err := app.SetPad(cmd.Context(), id, "", false)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Pad cleared on %s\n", entry.ID)
+			return nil
+		},
+	}
 }
 
 func newWorkPadShowCmd() *cobra.Command {
