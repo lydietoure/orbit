@@ -13,10 +13,28 @@ type CreateWorkParams struct {
 	Title          string
 	Description    string
 	ScratchpadPath string
+	// NoSelect skips the auto-select step after insert. Default
+	// behavior (NoSelect == false) is to select the freshly created
+	// entry so subsequent `orbit work` commands operate on it without
+	// the user having to copy the ID around. Scripts that create many
+	// entries in a row want NoSelect == true.
+	NoSelect bool
 }
 
 // CreateWork is the use case behind `orbit work new`: build a
-// validated [core.WorkEntry] from the params and persist it.
+// validated [core.WorkEntry] from the params, persist it, and
+// (unless p.NoSelect) make it the currently selected entry.
+//
+// Auto-select also promotes the initial status to [core.StatusInProgress]
+// — the user is creating the entry to start working on it right now.
+// With NoSelect the entry is born [core.StatusNew] (queued for later)
+// and only `orbit work` lifecycle commands move it forward. Note that
+// the plain `orbit work select` command does NOT do this promotion;
+// only auto-select via `work new` does.
+//
+// Insert + select are NOT transactional — if select fails the entry
+// still exists and the user can recover with `orbit work select`.
+// Worth revisiting once the db package grows a tx helper.
 func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error) {
 	d, closer, err := open()
 	if err != nil {
@@ -24,16 +42,26 @@ func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error)
 	}
 	defer closer()
 
+	status := core.StatusNew
+	if !p.NoSelect {
+		status = core.StatusInProgress
+	}
 	entry, err := core.NewWorkEntry(core.NewWorkEntryParams{
 		Title:          p.Title,
 		Description:    p.Description,
 		ScratchpadPath: p.ScratchpadPath,
+		Status:         status,
 	})
 	if err != nil {
 		return core.WorkEntry{}, err
 	}
 	if err := db.InsertWorkEntry(ctx, d, entry); err != nil {
 		return core.WorkEntry{}, err
+	}
+	if !p.NoSelect {
+		if err := db.SelectWorkEntry(ctx, d, entry.ID); err != nil {
+			return core.WorkEntry{}, err
+		}
 	}
 	return entry, nil
 }

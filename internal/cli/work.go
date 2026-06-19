@@ -38,6 +38,7 @@ func newWorkNewCmd() *cobra.Command {
 	var (
 		description string
 		scratchpad  string
+		noSelect    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "new <title>",
@@ -48,11 +49,16 @@ func newWorkNewCmd() *cobra.Command {
 				Title:          args[0],
 				Description:    description,
 				ScratchpadPath: scratchpad,
+				NoSelect:       noSelect,
 			})
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Created %s: %q\n", entry.ID, entry.Title)
+			verb := "Created and selected"
+			if noSelect {
+				verb = "Created"
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s: %q\n", verb, entry.ID, entry.Title)
 			return nil
 		},
 	}
@@ -60,6 +66,8 @@ func newWorkNewCmd() *cobra.Command {
 		"Longer explanation of this work")
 	cmd.Flags().StringVarP(&scratchpad, "scratchpad", "s", "",
 		"Path to a folder for experimental/scratch work on this entry")
+	cmd.Flags().BoolVar(&noSelect, "no-select", false,
+		"Don't auto-select the new entry (useful in scripts)")
 	return cmd
 }
 
