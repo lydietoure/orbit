@@ -54,36 +54,39 @@ The repo loads a gitignored `.env` file at the workspace root via
 there. Example:
 
 ```env
-# Where `task smoke` points ORBIT_HOME. No default — must be set
+# Where `task smoke` points orbit. No default — must be set
 # explicitly here or on the CLI.
-SMOKE_TEST_DIR=.local/smoke
+ORBIT_HOME=.local/smoke
 
 # Verbose logging on by default in smoke runs. Comment out for silence.
 ORBIT_VERBOSE=1
 ```
 
-`SMOKE_TEST_DIR` has **no fallback default** in the Taskfile. The
-smoke tasks `requires:` it — they fail loudly if it's unset, so an
-empty value can never trigger a `rm -rf /*`.
+`ORBIT_HOME` has **no fallback default** in the Taskfile. The smoke
+tasks `requires:` it — they fail loudly if it's unset, so an empty
+value can never trigger a `rm -rf /*`.
 
 ### Tasks
 
 ```sh
-task smoke -- init                          # run orbit init against $SMOKE_TEST_DIR
+task smoke -- init                          # run orbit init against $ORBIT_HOME
 task smoke -- -v init                       # forward flags to orbit
-task smoke SMOKE_TEST_DIR=.local/foo -- init  # CLI override beats .env
-task smoke:clean                            # empty $SMOKE_TEST_DIR (dir kept)
-task smoke:reset -- -v                      # empty + re-init
+task smoke ORBIT_HOME=.local/foo -- init    # CLI override beats .env
+task smoke:clean                            # delete $ORBIT_HOME entirely
+task smoke:reset -- -v                      # delete + re-init
 ```
 
 Mechanics:
 
-- `task smoke` ensures `$SMOKE_TEST_DIR` exists (`mkdir -p`), exports
-  it as `ORBIT_HOME`, then runs `go run ./cmd/orbit` with everything
-  after `--` forwarded as args.
-- `task smoke:clean` removes the *contents* of `$SMOKE_TEST_DIR`, not
-  the directory itself, so any path you point your `.env` at stays
-  in place.
+- `task smoke` runs `go run ./cmd/orbit` with everything after `--`
+  forwarded as args. `ORBIT_HOME` is exported into the child process
+  via the `dotenv:` directive (no separate indirection variable).
+  Orbit itself owns its home-dir lifecycle (created by `init`,
+  removed by `destroy`), so the harness deliberately does not
+  pre-create `$ORBIT_HOME` — that keeps the "not initialized" error
+  path honest.
+- `task smoke:clean` `rm -rf`s `$ORBIT_HOME`. Safe because the
+  Taskfile `requires:` the var, so an empty value is impossible.
 - `task smoke:reset` is `smoke:clean` followed by `smoke -- init`,
   forwarding any extra `--` args to the second step.
 
