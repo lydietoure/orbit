@@ -354,13 +354,14 @@ Design principles:
 
 ```
 ┌──────────────┐     ┌──────────────┐
-│     CLI      │     │  MCP Server  │
+│   CLI        │     │  MCP Server  │
+│ (cobra)      │     │ (net/http)   │
 └──────┬───────┘     └──────┬───────┘
        │                    │
        └────────┬───────────┘
                 │
         ┌───────▼─────────┐
-        │   Core Library  │
+        │  internal/core  │
         ├─────────────────┤
         │  WorkEntry CRUD │
         │  Artifact links │
@@ -373,29 +374,31 @@ Design principles:
      ┌──────────┼──────────┐
      │          │          │
 ┌────▼───┐ ┌────▼────┐ ┌───▼────┐
-│ Local  │ │  Git    │ │ GitHub │
-│   DB   │ │ Client  │ │ / ADO  │
+│  SQLite│ │  Git    │ │ GitHub │
+│ (pure) │ │  CLI    │ │ / ADO  │
 └────────┘ └─────────┘ └────────┘
 ```
 
-- **Core Library** — domain models, storage, query logic. No CLI dependency.
-- **CLI** — thin CLI layer that calls into core.
-- **TUI** — terminal UI for browsing and interacting with orbit data.
-- **MCP Server** — MCP server that calls into core (added later).
-- **Integrations** — adapters for Git, GitHub, ADO.
+- **`internal/core`** — domain models and business logic. No CLI, DB, or I/O imports. Testable in isolation.
+- **`internal/db`** — SQLite repository layer. Schema embedded via `//go:embed`.
+- **`internal/cli`** — thin cobra command layer that calls into core/db.
+- **`internal/tui`** — bubbletea TUI for browsing and interacting with orbit data (M3+).
+- **MCP Server** — stdlib `net/http` server that calls into core (M5).
+- **Integrations** — shell out to `git` CLI; HTTP client for GitHub/ADO metadata.
+
+See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project layout.
 
 ## 9. Technical Considerations
 
-This section outlines the key technical requirements without prescribing specific implementations.
-
-| Concern | Requirement |
-|---|---|
-| **CLI** | Subcommand-based interface with auto-generated help. Must support both interactive prompts and scriptable flags. |
-| **Database** | Local relational database. Must support foreign keys, cascade deletes, full-text search. No external server. |
-| **MCP Server** | Implements the Model Context Protocol for LLM tool integration. |
-| **Git Integration** | Read-only access to branch names, commit logs, and repository metadata. |
-| **TUI** | Terminal-based interface for browsing and editing. Keyboard-driven navigation. |
-| **External APIs** | HTTP client for fetching metadata from GitHub/ADO. Read-only. PAT-based auth for private repos. |
+| Concern | Requirement | Go implementation |
+|---|---|---|
+| **CLI** | Subcommand-based interface with auto-generated help. Must support both interactive prompts and scriptable flags. | `cobra` |
+| **Database** | Local relational database. Must support foreign keys, cascade deletes, full-text search. No external server. | `modernc.org/sqlite` (pure Go) |
+| **Config** | YAML-based user preferences. | `gopkg.in/yaml.v3` |
+| **MCP Server** | Implements the Model Context Protocol for LLM tool integration. | `net/http` + `encoding/json` |
+| **Git Integration** | Read-only access to branch names, commit logs, and repository metadata. | `os/exec` → `git` CLI |
+| **TUI** | Terminal-based interface for browsing and editing. Keyboard-driven navigation. | `bubbletea` + `lipgloss` |
+| **External APIs** | HTTP client for fetching metadata from GitHub/ADO. Read-only. PAT-based auth for private repos. | `net/http` (stdlib) |
 
 ## 10. Milestones
 
