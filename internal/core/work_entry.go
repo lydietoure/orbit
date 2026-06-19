@@ -35,13 +35,20 @@ func (s WorkEntryStatus) Valid() bool {
 
 // WorkEntry is a single unit of tracked work. The ID is a 5-character
 // Crockford base32 string; see [NewID] and docs/DATA_MODEL.md for the
-// encoding scheme. The full set of persisted fields (description,
-// status reason, scratchpad path, timestamps) is added in later
-// slices as the storage layer needs them.
+// encoding scheme.
+//
+// Optional text fields (Description, StatusReason, ScratchpadPath)
+// use the empty string to mean "absent" — the storage layer maps
+// empty to SQL NULL on write.
 type WorkEntry struct {
-	ID     string
-	Title  string
-	Status WorkEntryStatus
+	ID             string
+	Title          string
+	Description    string
+	Status         WorkEntryStatus
+	StatusReason   string
+	ScratchpadPath string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // ArtifactType classifies an [Artifact] (e.g., a git branch, a pull
