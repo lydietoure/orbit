@@ -1,7 +1,10 @@
 package core
 
 import (
+	"errors"
+	"fmt"
 	"math/rand/v2"
+	"strings"
 	"time"
 )
 
@@ -49,6 +52,63 @@ type WorkEntry struct {
 	ScratchpadPath string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// NewWorkEntryParams holds the user-supplied input for a new work
+// entry. Computed fields (ID, timestamps) are filled in by
+// [NewWorkEntry], not the caller.
+type NewWorkEntryParams struct {
+	// Title is required and is trimmed of surrounding whitespace.
+	Title string
+	// Description is an optional longer explanation. Empty means absent.
+	Description string
+	// Status is the initial lifecycle status. Defaults to [StatusNew]
+	// when zero.
+	Status WorkEntryStatus
+	// StatusReason explains the status. Required when Status is
+	// [StatusAbandoned]; otherwise optional.
+	StatusReason string
+	// ScratchpadPath is an optional filesystem path to scratch work.
+	// Empty means absent.
+	ScratchpadPath string
+}
+
+// NewWorkEntry builds a fully-populated, validated [WorkEntry]. It
+// trims the title, defaults Status to [StatusNew] when zero,
+// enforces the data-model rule that an abandoned entry requires a
+// reason, generates a fresh ID via [NewID], and sets CreatedAt and
+// UpdatedAt to the current time (UTC, equal at construction).
+//
+// The returned WorkEntry is ready to persist; storage layers should
+// not re-validate or re-default.
+func NewWorkEntry(p NewWorkEntryParams) (WorkEntry, error) {
+	title := strings.TrimSpace(p.Title)
+	if title == "" {
+		return WorkEntry{}, errors.New("work entry title is required")
+	}
+
+	status := p.Status
+	if status == "" {
+		status = StatusNew
+	}
+	if !status.Valid() {
+		return WorkEntry{}, fmt.Errorf("invalid work entry status %q", status)
+	}
+	if status == StatusAbandoned && strings.TrimSpace(p.StatusReason) == "" {
+		return WorkEntry{}, errors.New("status reason is required when status is abandoned")
+	}
+
+	now := time.Now().UTC()
+	return WorkEntry{
+		ID:             NewID(),
+		Title:          title,
+		Description:    p.Description,
+		Status:         status,
+		StatusReason:   p.StatusReason,
+		ScratchpadPath: p.ScratchpadPath,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}, nil
 }
 
 // ArtifactType classifies an [Artifact] (e.g., a git branch, a pull

@@ -6,6 +6,122 @@ import (
 	"time"
 )
 
+// ---- NewWorkEntry ---------------------------------------------------------
+
+// TestNewWorkEntry_Defaults covers the happy path with only a title:
+// ID is generated, status defaults to "new", timestamps are populated
+// and equal at construction.
+func TestNewWorkEntry_Defaults(t *testing.T) {
+	before := time.Now().UTC().Add(-time.Second)
+
+	entry, err := NewWorkEntry(NewWorkEntryParams{Title: "  Add caching  "})
+	if err != nil {
+		t.Fatalf("NewWorkEntry: %v", err)
+	}
+
+	if entry.Title != "Add caching" {
+		t.Errorf("title = %q, want trimmed %q", entry.Title, "Add caching")
+	}
+	if len(entry.ID) != 5 {
+		t.Errorf("ID = %q (len %d), want 5 chars", entry.ID, len(entry.ID))
+	}
+	if entry.Status != StatusNew {
+		t.Errorf("Status = %q, want %q", entry.Status, StatusNew)
+	}
+	if entry.CreatedAt.IsZero() || entry.UpdatedAt.IsZero() {
+		t.Errorf("timestamps not set: created=%v updated=%v", entry.CreatedAt, entry.UpdatedAt)
+	}
+	if !entry.CreatedAt.Equal(entry.UpdatedAt) {
+		t.Errorf("CreatedAt (%v) and UpdatedAt (%v) should be equal at construction",
+			entry.CreatedAt, entry.UpdatedAt)
+	}
+	if entry.CreatedAt.Before(before) {
+		t.Errorf("CreatedAt %v is before test start %v", entry.CreatedAt, before)
+	}
+}
+
+// TestNewWorkEntry_PreservesAllFields confirms every supplied field
+// survives onto the resulting WorkEntry unchanged (except Title, which
+// is trimmed).
+func TestNewWorkEntry_PreservesAllFields(t *testing.T) {
+	p := NewWorkEntryParams{
+		Title:          "Investigate p99 spike",
+		Description:    "look at metrics in the last 24h",
+		Status:         StatusInProgress,
+		StatusReason:   "started today",
+		ScratchpadPath: "C:/scratch/p99",
+	}
+	entry, err := NewWorkEntry(p)
+	if err != nil {
+		t.Fatalf("NewWorkEntry: %v", err)
+	}
+	if entry.Title != p.Title {
+		t.Errorf("title = %q, want %q", entry.Title, p.Title)
+	}
+	if entry.Description != p.Description {
+		t.Errorf("description = %q, want %q", entry.Description, p.Description)
+	}
+	if entry.Status != p.Status {
+		t.Errorf("status = %q, want %q", entry.Status, p.Status)
+	}
+	if entry.StatusReason != p.StatusReason {
+		t.Errorf("status_reason = %q, want %q", entry.StatusReason, p.StatusReason)
+	}
+	if entry.ScratchpadPath != p.ScratchpadPath {
+		t.Errorf("scratchpad_path = %q, want %q", entry.ScratchpadPath, p.ScratchpadPath)
+	}
+}
+
+// TestNewWorkEntry_RejectsEmptyTitle covers the validation that a
+// title (including a whitespace-only one) is required.
+func TestNewWorkEntry_RejectsEmptyTitle(t *testing.T) {
+	for _, title := range []string{"", "   ", "\t\n"} {
+		if _, err := NewWorkEntry(NewWorkEntryParams{Title: title}); err == nil {
+			t.Errorf("title %q: expected error, got nil", title)
+		}
+	}
+}
+
+// TestNewWorkEntry_RejectsInvalidStatus rejects a status that is
+// neither empty (defaults to new) nor one of the known values.
+func TestNewWorkEntry_RejectsInvalidStatus(t *testing.T) {
+	_, err := NewWorkEntry(NewWorkEntryParams{Title: "x", Status: WorkEntryStatus("blocked")})
+	if err == nil {
+		t.Fatal("expected error for invalid status, got nil")
+	}
+	if !strings.Contains(err.Error(), "blocked") {
+		t.Errorf("error %q should mention the offending status", err)
+	}
+}
+
+// TestNewWorkEntry_RequiresReasonWhenAbandoned enforces the
+// data-model rule that an abandoned entry needs a reason.
+func TestNewWorkEntry_RequiresReasonWhenAbandoned(t *testing.T) {
+	// No reason — fails.
+	if _, err := NewWorkEntry(NewWorkEntryParams{Title: "x", Status: StatusAbandoned}); err == nil {
+		t.Fatal("expected error for abandoned without reason, got nil")
+	}
+	// Whitespace-only reason — also fails.
+	_, err := NewWorkEntry(NewWorkEntryParams{
+		Title:        "x",
+		Status:       StatusAbandoned,
+		StatusReason: "   ",
+	})
+	if err == nil {
+		t.Fatal("expected error for abandoned with blank reason, got nil")
+	}
+	// With a real reason — succeeds.
+	if _, err := NewWorkEntry(NewWorkEntryParams{
+		Title:        "x",
+		Status:       StatusAbandoned,
+		StatusReason: "descoped",
+	}); err != nil {
+		t.Errorf("abandoned with reason should succeed, got %v", err)
+	}
+}
+
+// ---- NewID ----------------------------------------------------------------
+
 func TestNewID_LengthAndAlphabet(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		id := NewID()

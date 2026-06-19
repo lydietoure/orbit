@@ -1,89 +1,56 @@
 package db
 
+// This file is the storage gateway for the work_entries table.
+// Every read/write of that table goes through a function defined
+// here — callers (cli/, future packages) never write SQL directly.
+//
+// Layering:
+//   core/  — defines what a WorkEntry is and what makes one valid
+//            (the struct, the status enum, NewWorkEntry). Pure Go,
+//            no *sql.DB, no I/O.
+//   db/    — this layer. Takes already-valid core.WorkEntry values
+//            (or query parameters) and runs SQL. No validation, no
+//            business rules — if it got here, it's assumed good.
+//   cli/   — wires the two together: parses flags, calls core to
+//            build, calls db to persist, prints output.
+//
+// Naming convention: this file is named after the table, not after
+// a single operation. As we add Get/List/Update/Delete they all
+// land in here until the file gets unwieldy. Same for the _test file.
+
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/lydietoure/orbit/internal/core"
 )
 
-// CreateWorkEntryParams holds the user-supplied input for a new work
-// entry. Computed fields (ID, timestamps) are filled in by
-// [CreateWorkEntry], not the caller.
-type CreateWorkEntryParams struct {
-	// Title is required and trimmed of surrounding whitespace.
-	Title string
-	// Description is an optional longer explanation. Empty means absent.
-	Description string
-	// Status is the initial lifecycle status. Defaults to
-	// [core.StatusNew] when zero.
-	Status core.WorkEntryStatus
-	// StatusReason explains the status. Required when Status is
-	// [core.StatusAbandoned]; otherwise optional.
-	StatusReason string
-	// ScratchpadPath is an optional filesystem path to scratch work.
-	// Empty means absent.
-	ScratchpadPath string
-}
-
-// CreateWorkEntry inserts a new work entry into the database and
-// returns the persisted record with ID, status, and timestamps filled
-// in. The ID is generated via [core.NewID]; CreatedAt and UpdatedAt
-// are set to the current time (UTC) and are equal at insert time.
-//
-// Validation errors (empty title, invalid status, missing reason for
-// abandoned) are returned before any DB call is made.
-func CreateWorkEntry(ctx context.Context, db *sql.DB, p CreateWorkEntryParams) (core.WorkEntry, error) {
-	title := strings.TrimSpace(p.Title)
-	if title == "" {
-		return core.WorkEntry{}, errors.New("work entry title is required")
-	}
-
-	status := p.Status
-	if status == "" {
-		status = core.StatusNew
-	}
-	if !status.Valid() {
-		return core.WorkEntry{}, fmt.Errorf("invalid work entry status %q", status)
-	}
-	if status == core.StatusAbandoned && strings.TrimSpace(p.StatusReason) == "" {
-		return core.WorkEntry{}, errors.New("status reason is required when status is abandoned")
-	}
-
-	now := time.Now().UTC()
-	entry := core.WorkEntry{
-		ID:             core.NewID(),
-		Title:          title,
-		Description:    p.Description,
-		Status:         status,
-		StatusReason:   p.StatusReason,
-		ScratchpadPath: p.ScratchpadPath,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-
+// InsertWorkEntry persists a fully-constructed [core.WorkEntry]. It
+// performs no validation or defaulting — that is
+// [core.NewWorkEntry]'s job — so the caller must hand in a record
+// that is already valid and complete (ID, Status, CreatedAt,
+// UpdatedAt all set).
+func InsertWorkEntry(ctx context.Context, db *sql.DB, e core.WorkEntry) error {
 	const stmt = `INSERT INTO work_entries
 		(id, title, description, status, status_reason, scratchpad_path, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := db.ExecContext(ctx, stmt,
-		entry.ID,
-		entry.Title,
-		nullableText(entry.Description),
-		string(entry.Status),
-		nullableText(entry.StatusReason),
-		nullableText(entry.ScratchpadPath),
-		isoTime(entry.CreatedAt),
-		isoTime(entry.UpdatedAt),
+		e.ID,
+		e.Title,
+		nullableText(e.Description),
+		string(e.Status),
+		nullableText(e.StatusReason),
+		nullableText(e.ScratchpadPath),
+		isoTime(e.CreatedAt),
+		isoTime(e.UpdatedAt),
 	)
 	if err != nil {
-		return core.WorkEntry{}, fmt.Errorf("insert work entry: %w", err)
+		return fmt.Errorf("insert work entry: %w", err)
 	}
-	return entry, nil
+	return nil
 }
 
 // nullableText returns nil for the empty string and s otherwise. Passing
