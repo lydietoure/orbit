@@ -77,23 +77,10 @@ orbit/
 ## Database
 
 - **Engine:** SQLite via `modernc.org/sqlite`
-- **Location:** `~/.orbit/orbit.db` (platform-appropriate user config directory)
+- **Location:** `~/.orbit/orbit.db` 
 - **Schema:** See [`DATA_MODEL.md`](DATA_MODEL.md) and `internal/db/schema.sql`
 - **Pragmas:** `foreign_keys = ON`, `journal_mode = WAL`
 - **Schema embedding:** `//go:embed schema.sql` in `internal/db/db.go`
-
-### Platform directories
-
-Use Go's equivalent of `platformdirs` to resolve the config directory:
-
-| Platform | Path |
-|---|---|
-| Linux/macOS | `$XDG_CONFIG_HOME/orbit/` or `~/.config/orbit/` |
-| Windows | `%APPDATA%\orbit\` |
-
-Consider [`os.UserConfigDir()`](https://pkg.go.dev/os#UserConfigDir) from the standard library (no external dependency needed).
-
----
 
 ## Build & Distribution
 
