@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"sort"
 
 	"github.com/lydietoure/orbit/internal/core"
@@ -43,7 +44,15 @@ func resolveTargetID(ctx context.Context, d *sql.DB, id string) (string, error) 
 type CreateWorkParams struct {
 	Title       string
 	Description string
-	PadPath     string
+	// PadPath is the user-supplied <name> for the pad. When non-empty
+	// it is resolved per [ResolvePadPath] and the resulting directory
+	// is provisioned on disk before the entry is inserted; the
+	// absolute path is what gets stored on the entry.
+	PadPath string
+	// NoDock, when true, forces the pad to be created relative to the
+	// current working directory even when a dock root is configured.
+	// Has no effect when PadPath is empty or absolute.
+	NoDock bool
 	// Tags is the optional list of tag names to attach. Each is
 	// normalized (lower-case, trim) via [core.NormalizeTagName]
 	// before insert; duplicates after normalization are deduped.
@@ -82,6 +91,29 @@ func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error)
 		return core.WorkEntry{}, err
 	}
 
+	// Resolve and provision the pad upfront so a failure here aborts
+	// before any DB writes. The "already existed" case is a warning,
+	// not an error — it lets the user point a new entry at a folder
+	// they already had. The absolute path is what we store on the
+	// entry so `work show` and downstream tooling see a stable value.
+	padAbs := ""
+	if p.PadPath != "" {
+		abs, err := ResolvePadPath(ctx, p.PadPath, p.NoDock)
+		if err != nil {
+			return core.WorkEntry{}, err
+		}
+		if err := ProvisionPad(abs); err != nil {
+			if !errors.Is(err, ErrPadAlreadyExisted) {
+				return core.WorkEntry{}, err
+			}
+			slog.Warn("pad path already exists",
+				"path", abs,
+				"title", p.Title,
+			)
+		}
+		padAbs = abs
+	}
+
 	d, closer, err := open()
 	if err != nil {
 		return core.WorkEntry{}, err
@@ -95,7 +127,7 @@ func CreateWork(ctx context.Context, p CreateWorkParams) (core.WorkEntry, error)
 	entry, err := core.NewWorkEntry(core.NewWorkEntryParams{
 		Title:       p.Title,
 		Description: p.Description,
-		PadPath:     p.PadPath,
+		PadPath:     padAbs,
 		Status:      status,
 	})
 	if err != nil {

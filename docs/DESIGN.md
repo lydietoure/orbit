@@ -466,9 +466,9 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] `orbit init` — create `~/.orbit/`, `orbit.db`, and a default `config.yaml`
 - [x] `orbit work new <title>` — create a work entry (with optional `--description`, `--tag`); auto-selects the new entry
 - [x] `--no-select` flag on `orbit work new` — skip auto-select (for scripts)
-- [ ] `orbit work new <title> -p <name>` — also create a pad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
-- [ ] `--no-dock` flag on `orbit work new` — ignore the dock root for this entry
-- [ ] Read dock root from DB / env (already implemented via `orbit config pad set-root`)
+- [x] `orbit work new <title> -p <name>` — also create a pad folder; resolve `<name>` per the rules in [CLI Design](#6-cli-design); warn (do not error) if the folder already exists
+- [x] `--no-dock` flag on `orbit work new` — ignore the dock root for this entry
+- [x] Read dock root from DB / env (already implemented via `orbit config pad set-root`)
 - [ ] `orbit work pad <path>` / `--clear` / `--open` — manage the pad after creation
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
   - [ ] Output formatting: --output table, json, plain

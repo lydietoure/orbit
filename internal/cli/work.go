@@ -41,6 +41,7 @@ func newWorkNewCmd() *cobra.Command {
 	var (
 		description string
 		pad         string
+		noDock      bool
 		tags        []string
 		noSelect    bool
 	)
@@ -53,6 +54,7 @@ func newWorkNewCmd() *cobra.Command {
 				Title:       args[0],
 				Description: description,
 				PadPath:     pad,
+				NoDock:      noDock,
 				Tags:        tags,
 				NoSelect:    noSelect,
 			})
@@ -71,6 +73,8 @@ func newWorkNewCmd() *cobra.Command {
 		"Longer explanation of this work")
 	cmd.Flags().StringVarP(&pad, "pad", "p", "",
 		"Path to the pad — the per-entry folder for experimental/scratch work")
+	cmd.Flags().BoolVar(&noDock, "no-dock", false,
+		"Ignore the dock root and create the pad relative to the current directory (only meaningful with -p)")
 	cmd.Flags().StringSliceVarP(&tags, "tag", "t", nil,
 		"Tag to attach (repeatable, comma-separated)")
 	cmd.Flags().BoolVar(&noSelect, "no-select", false,
