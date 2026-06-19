@@ -4,7 +4,9 @@ tasks:
 
   build:
     desc: "Build the orbit binary"
-    cmd: go build -o dist/orbit ./cmd/orbit
+    cmds:
+      - mkdir -p dist
+      - go build -o dist/orbit ./cmd/orbit
 
   test:
     desc: "Run all tests"

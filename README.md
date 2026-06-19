@@ -30,7 +30,7 @@ Written in Go. Local-first. CLI-first. LLM-ready.
 ```sh
 task build        # builds to dist/orbit
 # or
-go build -o dist/orbit ./cmd/orbit
+mkdir -p dist && go build -o dist/orbit ./cmd/orbit
 ```
 
 ### Usage

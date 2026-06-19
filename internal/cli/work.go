@@ -30,7 +30,7 @@ var workListCmd = &cobra.Command{
 var workShowCmd = &cobra.Command{
 	Use:   "show [id]",
 	Short: "Show details of a work entry",
-	Args:  cobra.MaximumNArgs(1),
+	Args:  cobra.ExactArgs(1),
 }
 
 var workDeleteCmd = &cobra.Command{
