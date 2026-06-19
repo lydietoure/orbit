@@ -2,11 +2,41 @@ package app
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"sort"
 
 	"github.com/lydietoure/orbit/internal/core"
 	"github.com/lydietoure/orbit/internal/db"
 )
+
+// ErrNoTargetWorkEntry is returned by use cases that accept an
+// optional id when no id was supplied AND no entry is currently
+// selected — i.e. there is no work entry to operate on. Surfaced
+// as the error from `orbit work show` / `work tag` etc. when run
+// with no id and an empty selection.
+var ErrNoTargetWorkEntry = errors.New(
+	"no work entry id given and no entry is currently selected; " +
+		"pass an id, run `orbit work select <id>`, or `orbit work list` to find one",
+)
+
+// resolveTargetID returns id if non-empty, otherwise the id of the
+// currently selected entry. If neither is available it returns
+// [ErrNoTargetWorkEntry] so commands surface a single, helpful
+// message instead of leaking the lower-level [db.ErrNoSelectedEntry].
+func resolveTargetID(ctx context.Context, d *sql.DB, id string) (string, error) {
+	if id != "" {
+		return id, nil
+	}
+	sel, err := db.GetSelectedWorkEntry(ctx, d)
+	if errors.Is(err, db.ErrNoSelectedEntry) {
+		return "", ErrNoTargetWorkEntry
+	}
+	if err != nil {
+		return "", err
+	}
+	return sel.ID, nil
+}
 
 // CreateWorkParams is the input to [CreateWork]. Mirrors the cli flag
 // set; the use case doesn't care where the values came from.
@@ -127,7 +157,9 @@ func ListWork(ctx context.Context) ([]core.WorkEntry, error) {
 }
 
 // ShowWork returns the work entry with the given ID, or wraps
-// [db.ErrWorkEntryNotFound] if none exists.
+// [db.ErrWorkEntryNotFound] if none exists. An empty id falls back
+// to the currently selected entry; if nothing is selected it
+// returns [ErrNoTargetWorkEntry].
 func ShowWork(ctx context.Context, id string) (core.WorkEntry, error) {
 	d, closer, err := open()
 	if err != nil {
@@ -135,7 +167,11 @@ func ShowWork(ctx context.Context, id string) (core.WorkEntry, error) {
 	}
 	defer closer()
 
-	return db.GetWorkEntry(ctx, d, id)
+	target, err := resolveTargetID(ctx, d, id)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	return db.GetWorkEntry(ctx, d, target)
 }
 
 // SelectWork sets the given entry as the current focus and returns
@@ -172,55 +208,81 @@ func ForgetSelectedWork(ctx context.Context) error {
 	return db.ForgetSelectedWorkEntry(ctx, d)
 }
 
-// TagWork attaches a tag to the given work entry. The raw tag name
-// is normalized via [core.NormalizeTagName] (lower-case, trim); the
-// normalized form is returned so the caller can echo what was
-// actually stored. Idempotent: re-tagging is a no-op.
-//
-// Validates the entry exists up front so the user gets a clean
-// [db.ErrWorkEntryNotFound] instead of a raw FK violation.
-func TagWork(ctx context.Context, id, rawTag string) (string, error) {
-	name, err := core.NormalizeTagName(rawTag)
-	if err != nil {
-		return "", err
-	}
-
+// GetSelectedWork returns the currently selected work entry (with
+// tags populated), or wraps [db.ErrNoSelectedEntry] if no entry is
+// selected. Unlike the id-defaulting use cases, this one does NOT
+// remap the sentinel — the caller explicitly asked about selection
+// state, so the lower-level message is the right one.
+func GetSelectedWork(ctx context.Context) (core.WorkEntry, error) {
 	d, closer, err := open()
 	if err != nil {
-		return "", err
+		return core.WorkEntry{}, err
 	}
 	defer closer()
 
-	if _, err := db.GetWorkEntry(ctx, d, id); err != nil {
-		return "", err
-	}
-	if err := db.AddTagToWorkEntry(ctx, d, id, name); err != nil {
-		return "", err
-	}
-	return name, nil
+	return db.GetSelectedWorkEntry(ctx, d)
 }
 
-// UntagWork removes a tag from the given work entry. The raw tag
-// name is normalized for lookup; the normalized form is returned for
-// echo. Wraps [db.ErrTagNotOnEntry] if the entry does not have the
-// tag, and [db.ErrWorkEntryNotFound] if the entry itself is missing.
-func UntagWork(ctx context.Context, id, rawTag string) (string, error) {
+// TagWork attaches a tag to a work entry. The raw tag name is
+// normalized via [core.NormalizeTagName] (lower-case, trim); the
+// normalized form is returned alongside the resolved entry id so
+// the caller can echo exactly what was mutated. Idempotent.
+//
+// An empty id falls back to the currently selected entry (returns
+// [ErrNoTargetWorkEntry] if nothing is selected). Validates the
+// entry exists up front so the user gets a clean
+// [db.ErrWorkEntryNotFound] instead of a raw FK violation.
+func TagWork(ctx context.Context, id, rawTag string) (resolvedID, tagName string, err error) {
 	name, err := core.NormalizeTagName(rawTag)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	d, closer, err := open()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer closer()
 
-	if _, err := db.GetWorkEntry(ctx, d, id); err != nil {
-		return "", err
+	target, err := resolveTargetID(ctx, d, id)
+	if err != nil {
+		return "", "", err
 	}
-	if err := db.RemoveTagFromWorkEntry(ctx, d, id, name); err != nil {
-		return "", err
+	if _, err := db.GetWorkEntry(ctx, d, target); err != nil {
+		return "", "", err
 	}
-	return name, nil
+	if err := db.AddTagToWorkEntry(ctx, d, target, name); err != nil {
+		return "", "", err
+	}
+	return target, name, nil
+}
+
+// UntagWork removes a tag from a work entry. Returns the resolved
+// id and normalized tag name so the caller can echo the mutation.
+// Wraps [db.ErrTagNotOnEntry] if the entry does not have the tag,
+// [db.ErrWorkEntryNotFound] if the entry itself is missing, and
+// [ErrNoTargetWorkEntry] if no id was given and nothing is selected.
+func UntagWork(ctx context.Context, id, rawTag string) (resolvedID, tagName string, err error) {
+	name, err := core.NormalizeTagName(rawTag)
+	if err != nil {
+		return "", "", err
+	}
+
+	d, closer, err := open()
+	if err != nil {
+		return "", "", err
+	}
+	defer closer()
+
+	target, err := resolveTargetID(ctx, d, id)
+	if err != nil {
+		return "", "", err
+	}
+	if _, err := db.GetWorkEntry(ctx, d, target); err != nil {
+		return "", "", err
+	}
+	if err := db.RemoveTagFromWorkEntry(ctx, d, target, name); err != nil {
+		return "", "", err
+	}
+	return target, name, nil
 }

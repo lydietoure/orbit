@@ -29,6 +29,7 @@ func getCmdWork() *cobra.Command {
 		newWorkShowCmd(),
 		newWorkDeleteCmd(),
 		newWorkSelectCmd(),
+		newWorkSelectedCmd(),
 		newWorkForgetCmd(),
 		newWorkTagCmd(),
 	)
@@ -118,11 +119,15 @@ func newWorkListCmd() *cobra.Command {
 // region work show
 func newWorkShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <id>",
-		Short: "Show details of a work entry",
-		Args:  cobra.ExactArgs(1),
+		Use:   "show [id]",
+		Short: "Show details of a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			entry, err := app.ShowWork(cmd.Context(), args[0])
+			id := ""
+			if len(args) == 1 {
+				id = args[0]
+			}
+			entry, err := app.ShowWork(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
@@ -183,6 +188,48 @@ func newWorkSelectCmd() *cobra.Command {
 	}
 }
 
+func newWorkSelectedCmd() *cobra.Command {
+	var all bool
+	cmd := &cobra.Command{
+		Use:   "selected",
+		Short: "Show the currently selected work entry",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			entry, err := app.GetSelectedWork(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if all {
+				printWorkEntry(cmd.OutOrStdout(), entry)
+				return nil
+			}
+			printWorkEntryCompact(cmd.OutOrStdout(), entry)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&all, "all", false,
+		"Show full details (same view as `work show`)")
+	return cmd
+}
+
+// printWorkEntryCompact writes a single-line summary of e to w in
+// the form:
+//
+//	<id>: <title> [tag1, tag2] (created YYYY-MM-DD, status: <status>)
+//
+// The bracketed tag list is omitted when the entry has no tags so
+// the line stays tight in the common case.
+func printWorkEntryCompact(w io.Writer, e core.WorkEntry) {
+	const dateFmt = "2006-01-02"
+	tagsPart := ""
+	if len(e.Tags) > 0 {
+		tagsPart = " [" + strings.Join(e.Tags, ", ") + "]"
+	}
+	fmt.Fprintf(w, "%s: %s%s (created %s, status: %s)\n",
+		e.ID, e.Title, tagsPart,
+		e.CreatedAt.UTC().Format(dateFmt), e.Status)
+}
+
 func newWorkForgetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "forget",
@@ -201,24 +248,30 @@ func newWorkForgetCmd() *cobra.Command {
 func newWorkTagCmd() *cobra.Command {
 	var remove bool
 	cmd := &cobra.Command{
-		Use:   "tag <id> <tag>",
-		Short: "Add (or with --remove, drop) a tag on a work entry",
-		Args:  cobra.ExactArgs(2),
+		Use:   "tag [id] <tag>",
+		Short: "Add (or with --remove, drop) a tag on a work entry; defaults to the selected entry when only <tag> is given",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, rawTag := args[0], args[1]
+			// Two-arg form: <id> <tag>. One-arg form: just <tag>,
+			// in which case the app layer resolves the selected entry.
+			id, rawTag := "", args[0]
+			if len(args) == 2 {
+				id, rawTag = args[0], args[1]
+			}
+
 			if remove {
-				name, err := app.UntagWork(cmd.Context(), id, rawTag)
+				resolvedID, name, err := app.UntagWork(cmd.Context(), id, rawTag)
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Removed tag %q from %s\n", name, id)
+				fmt.Fprintf(cmd.OutOrStdout(), "Removed tag %q from %s\n", name, resolvedID)
 				return nil
 			}
-			name, err := app.TagWork(cmd.Context(), id, rawTag)
+			resolvedID, name, err := app.TagWork(cmd.Context(), id, rawTag)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Added tag %q to %s\n", name, id)
+			fmt.Fprintf(cmd.OutOrStdout(), "Added tag %q to %s\n", name, resolvedID)
 			return nil
 		},
 	}
