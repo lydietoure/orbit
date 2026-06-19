@@ -55,6 +55,12 @@ func init() {
 	rootCmd.AddCommand(getCmdConfig())
 	rootCmd.AddCommand(getCmdWork())
 	rootCmd.AddCommand(linkCmd)
+
+	// Make every command group strict: bare invocations and unknown
+	// subcommands fail with a UsageError (→ exit 2 via main) instead
+	// of cobra's default "print help, exit 0". Must run after all
+	// AddCommand calls so the walker sees the full tree.
+	markAllGroupsAsStrict(rootCmd)
 }
 
 // Execute runs the root command.
