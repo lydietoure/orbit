@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/lydietoure/orbit/internal/core"
 	"github.com/lydietoure/orbit/internal/db"
@@ -70,20 +71,91 @@ func newWorkNewCmd() *cobra.Command {
 
 //endregion
 
+//region work list
 func newWorkListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List work entries",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			d, closer, err := openDB()
+			if err != nil {
+				return err
+			}
+			defer closer()
+
+			entries, err := db.ListWorkEntries(cmd.Context(), d)
+			if err != nil {
+				return err
+			}
+
+			out := cmd.OutOrStdout()
+			if len(entries) == 0 {
+				fmt.Fprintln(out, "No work entries yet. Create one with `orbit work new <title>`.")
+				return nil
+			}
+			for _, e := range entries {
+				// Compact one-line format: <id>  <status>  <title>
+				// IDs are fixed-width (5 chars); statuses vary so we
+				// pad to the longest enum value ("in-progress" = 11).
+				fmt.Fprintf(out, "%s  %-11s  %s\n", e.ID, e.Status, e.Title)
+			}
+			return nil
+		},
 	}
 }
 
+//endregion
+
+//region work show
 func newWorkShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show [id]",
+		Use:   "show <id>",
 		Short: "Show details of a work entry",
 		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, closer, err := openDB()
+			if err != nil {
+				return err
+			}
+			defer closer()
+
+			entry, err := db.GetWorkEntry(cmd.Context(), d, args[0])
+			if err != nil {
+				return err
+			}
+
+			printWorkEntry(cmd.OutOrStdout(), entry)
+			return nil
+		},
 	}
 }
+
+// printWorkEntry writes a human-readable detail view of e to w.
+// Empty optional fields are rendered as "(none)" so the layout stays
+// aligned and the absence is obvious.
+func printWorkEntry(w io.Writer, e core.WorkEntry) {
+	const timeFmt = "2006-01-02 15:04:05 MST"
+	fmt.Fprintf(w, "ID:           %s\n", e.ID)
+	fmt.Fprintf(w, "Title:        %s\n", e.Title)
+	fmt.Fprintf(w, "Status:       %s\n", e.Status)
+	if e.StatusReason != "" {
+		fmt.Fprintf(w, "Reason:       %s\n", e.StatusReason)
+	}
+	fmt.Fprintf(w, "Description:  %s\n", orNone(e.Description))
+	fmt.Fprintf(w, "Scratchpad:   %s\n", orNone(e.ScratchpadPath))
+	fmt.Fprintf(w, "Created:      %s\n", e.CreatedAt.UTC().Format(timeFmt))
+	fmt.Fprintf(w, "Updated:      %s\n", e.UpdatedAt.UTC().Format(timeFmt))
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "(none)"
+	}
+	return s
+}
+
+//endregion
 
 func newWorkDeleteCmd() *cobra.Command {
 	return &cobra.Command{

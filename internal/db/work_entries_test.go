@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -138,5 +139,104 @@ func TestInsertWorkEntry_RejectsDuplicateID(t *testing.T) {
 	second.ID = first.ID
 	if err := InsertWorkEntry(context.Background(), db, second); err == nil {
 		t.Fatal("expected duplicate-ID insert to fail, got nil")
+	}
+}
+
+// TestGetWorkEntry_Found round-trips a full entry through the
+// database, exercising scanWorkEntry's NULL handling and timestamp
+// parsing in one go.
+func TestGetWorkEntry_Found(t *testing.T) {
+	db := newTestDB(t)
+	want := makeValidEntry(t, core.NewWorkEntryParams{
+		Title:          "Investigate p99 spike",
+		Description:    "look at metrics in the last 24h",
+		Status:         core.StatusInProgress,
+		StatusReason:   "started today",
+		ScratchpadPath: "C:/scratch/p99",
+	})
+	if err := InsertWorkEntry(context.Background(), db, want); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+
+	got, err := GetWorkEntry(context.Background(), db, want.ID)
+	if err != nil {
+		t.Fatalf("GetWorkEntry: %v", err)
+	}
+
+	if got.ID != want.ID || got.Title != want.Title ||
+		got.Description != want.Description || got.Status != want.Status ||
+		got.StatusReason != want.StatusReason || got.ScratchpadPath != want.ScratchpadPath {
+		t.Errorf("entry fields mismatch:\n got=%+v\nwant=%+v", got, want)
+	}
+	if !got.CreatedAt.Equal(want.CreatedAt) {
+		t.Errorf("CreatedAt round-trip: got=%v want=%v", got.CreatedAt, want.CreatedAt)
+	}
+	if !got.UpdatedAt.Equal(want.UpdatedAt) {
+		t.Errorf("UpdatedAt round-trip: got=%v want=%v", got.UpdatedAt, want.UpdatedAt)
+	}
+}
+
+// TestGetWorkEntry_NotFound asserts the sentinel-error contract.
+// Callers rely on errors.Is(err, ErrWorkEntryNotFound) to distinguish
+// "no such row" from a real failure.
+func TestGetWorkEntry_NotFound(t *testing.T) {
+	db := newTestDB(t)
+
+	_, err := GetWorkEntry(context.Background(), db, "nope0")
+	if err == nil {
+		t.Fatal("expected error for missing id, got nil")
+	}
+	if !errors.Is(err, ErrWorkEntryNotFound) {
+		t.Errorf("err = %v, want ErrWorkEntryNotFound", err)
+	}
+}
+
+// TestListWorkEntries_Empty: an empty table returns an empty (or nil)
+// slice with no error.
+func TestListWorkEntries_Empty(t *testing.T) {
+	db := newTestDB(t)
+
+	got, err := ListWorkEntries(context.Background(), db)
+	if err != nil {
+		t.Fatalf("ListWorkEntries: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("len = %d, want 0", len(got))
+	}
+}
+
+// TestListWorkEntries_OrdersByCreatedAtDesc verifies the listing
+// contract: newest first. Timestamps are set explicitly so the test
+// doesn't depend on time.Now() ordering across rapid inserts.
+func TestListWorkEntries_OrdersByCreatedAtDesc(t *testing.T) {
+	db := newTestDB(t)
+	base := time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC)
+
+	// Insert in shuffled timestamp order to make sure DB-level ORDER BY
+	// is what's doing the work (not insertion order).
+	entries := []core.WorkEntry{
+		{ID: "aaa01", Title: "middle", Status: core.StatusNew, CreatedAt: base.Add(1 * time.Hour), UpdatedAt: base.Add(1 * time.Hour)},
+		{ID: "aaa02", Title: "oldest", Status: core.StatusNew, CreatedAt: base, UpdatedAt: base},
+		{ID: "aaa03", Title: "newest", Status: core.StatusNew, CreatedAt: base.Add(2 * time.Hour), UpdatedAt: base.Add(2 * time.Hour)},
+	}
+	for _, e := range entries {
+		if err := InsertWorkEntry(context.Background(), db, e); err != nil {
+			t.Fatalf("InsertWorkEntry %s: %v", e.ID, err)
+		}
+	}
+
+	got, err := ListWorkEntries(context.Background(), db)
+	if err != nil {
+		t.Fatalf("ListWorkEntries: %v", err)
+	}
+
+	wantTitles := []string{"newest", "middle", "oldest"}
+	if len(got) != len(wantTitles) {
+		t.Fatalf("len = %d, want %d", len(got), len(wantTitles))
+	}
+	for i, w := range wantTitles {
+		if got[i].Title != w {
+			t.Errorf("entry[%d].Title = %q, want %q", i, got[i].Title, w)
+		}
 	}
 }

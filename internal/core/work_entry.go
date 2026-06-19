@@ -87,6 +87,8 @@ func NewWorkEntry(p NewWorkEntryParams) (WorkEntry, error) {
 		return WorkEntry{}, errors.New("work entry title is required")
 	}
 
+	// TODO: If another task already created an entry with this title, we should reject it. 
+
 	status := p.Status
 	if status == "" {
 		status = StatusNew
