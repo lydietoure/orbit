@@ -29,7 +29,9 @@ tasks:
       # on a tagged commit, "v0.1.0-5-g1a2b3c4" further along, a bare SHA
       # if untagged, and a "-dirty" suffix for uncommitted changes.
       VERSION:
-        sh: git describe --tags --always --dirty
+        # Note that this will always run in this directory (repository root)
+        # So the `git describe` command should always work
+        sh: git describe --tags --always --dirty || echo "dev"
       LDFLAGS: >-
         -X github.com/lydietoure/orbit/internal/cli.version={{.VERSION}}
     cmds:
