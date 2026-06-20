@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
@@ -139,5 +140,77 @@ func TestGetWorkEntry_PopulatesTags(t *testing.T) {
 	want := []string{"caching", "perf"}
 	if !reflect.DeepEqual(got.Tags, want) {
 		t.Errorf("got.Tags = %v, want %v", got.Tags, want)
+	}
+}
+
+// seedTaggedEntry inserts a work entry with the given title and tags,
+// returning its id. Helper for the ListAllTags tests.
+func seedTaggedEntry(t *testing.T, db *sql.DB, title string, tags ...string) string {
+	t.Helper()
+	ctx := context.Background()
+	e := makeValidEntry(t, core.NewWorkEntryParams{Title: title})
+	if err := InsertWorkEntry(ctx, db, e); err != nil {
+		t.Fatalf("InsertWorkEntry %q: %v", title, err)
+	}
+	for _, tag := range tags {
+		if err := AddTagToWorkEntry(ctx, db, e.ID, tag); err != nil {
+			t.Fatalf("AddTagToWorkEntry %q: %v", tag, err)
+		}
+	}
+	return e.ID
+}
+
+func TestListAllTags_CountsAndAlphabetical(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	seedTaggedEntry(t, db, "first", "perf", "caching", "owner:work")
+	seedTaggedEntry(t, db, "second", "caching", "project:payments")
+
+	got, err := ListAllTags(ctx, db)
+	if err != nil {
+		t.Fatalf("ListAllTags: %v", err)
+	}
+	// Alphabetical by name; reserved tags are NOT filtered at the db
+	// layer (the app layer does that), so they appear here. caching is
+	// used twice, the rest once.
+	want := []core.TagCount{
+		{Name: "caching", Count: 2},
+		{Name: "owner:work", Count: 1},
+		{Name: "perf", Count: 1},
+		{Name: "project:payments", Count: 1},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ListAllTags = %v, want %v", got, want)
+	}
+}
+
+func TestListAllTags_OmitsOrphans(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	// A tag that exists in the vocabulary but is attached to nothing
+	// must not appear in the usage overview.
+	if _, err := EnsureTag(ctx, db, "orphan"); err != nil {
+		t.Fatalf("EnsureTag: %v", err)
+	}
+	seedTaggedEntry(t, db, "only", "caching")
+
+	got, err := ListAllTags(ctx, db)
+	if err != nil {
+		t.Fatalf("ListAllTags: %v", err)
+	}
+	want := []core.TagCount{{Name: "caching", Count: 1}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ListAllTags = %v, want %v", got, want)
+	}
+}
+
+func TestListAllTags_EmptyIsNil(t *testing.T) {
+	db := newTestDB(t)
+	got, err := ListAllTags(context.Background(), db)
+	if err != nil {
+		t.Fatalf("ListAllTags: %v", err)
+	}
+	if got != nil {
+		t.Errorf("ListAllTags = %v, want nil", got)
 	}
 }

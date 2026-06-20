@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `orbit work tag list [id]` — list the plain tags on a work entry
+  (defaults to the selected entry). Reserved `project:*` / `owner:*`
+  tags are shown by `work project list` / `work owner list` instead.
+- `orbit tags` — list the whole tag vocabulary with per-tag work-entry
+  counts, alphabetical. Reserved `project:*` / `owner:*` tags are
+  excluded so they aren't surfaced twice.
+- `orbit work list --tag <name>` — filter work entries by tag. The flag
+  is repeatable and combines with AND semantics (an entry must carry
+  every requested tag); matching is case-insensitive.
 - `orbit work project add|remove|list [id] [name]` — manage the
   `project:*` tags on a work entry. Projects are multi-valued and
   adding is idempotent. The id is optional and falls back to the

@@ -10,6 +10,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/lydietoure/orbit/internal/core"
 )
 
 // ErrTagNotOnEntry is returned by [RemoveTagFromWorkEntry] when the
@@ -106,6 +108,39 @@ func ListTagsForWorkEntry(ctx context.Context, db *sql.DB, workEntryID string) (
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list tags for %s: %w", workEntryID, err)
+	}
+	return out, nil
+}
+
+// ListAllTags returns every tag that is attached to at least one work
+// entry, paired with the number of entries carrying it, in
+// alphabetical order by name. Orphaned tags — rows in `tags` with no
+// remaining associations — are omitted, since a usage overview of
+// unused labels is just noise. An empty vocabulary returns a nil slice
+// (not an error).
+func ListAllTags(ctx context.Context, db *sql.DB) ([]core.TagCount, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT t.name, COUNT(wet.work_entry_id) AS n
+		 FROM tags t
+		 JOIN work_entry_tags wet ON wet.tag_id = t.id
+		 GROUP BY t.id
+		 ORDER BY t.name`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list all tags: %w", err)
+	}
+	defer rows.Close()
+
+	var out []core.TagCount
+	for rows.Next() {
+		var tc core.TagCount
+		if err := rows.Scan(&tc.Name, &tc.Count); err != nil {
+			return nil, fmt.Errorf("list all tags: %w", err)
+		}
+		out = append(out, tc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list all tags: %w", err)
 	}
 	return out, nil
 }

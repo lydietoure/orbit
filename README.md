@@ -26,10 +26,13 @@ orbit work new "Add caching to payments" -p payments-caching
 # --no-select skips auto-selection.
 
 orbit work tag caching                          # tag the selected entry
+orbit work tag list                             # tags on the selected entry
+orbit tags                                      # all tags + usage counts
 orbit work show                                 # details of selected
 orbit work pad show                             # the pad path + existence
 
 orbit work list                                 # everything
+orbit work list --tag caching                   # filter by tag (repeatable, AND)
 orbit work select <id>                          # change focus
 orbit work delete --purge                       # remove entry + pad folder
 ```
@@ -121,6 +124,8 @@ orbit work new "Add caching to payments" -p payments-caching
 # 2. Annotate it
 orbit work tag caching
 orbit work tag perf
+orbit work tag list                             # caching, perf
+orbit tags                                       # the same tags, with counts, across all entries
 
 # 3. Move the pad later if you change your mind
 orbit work pad set ~/scratch/payments

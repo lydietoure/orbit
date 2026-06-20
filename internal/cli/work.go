@@ -102,18 +102,24 @@ func newWorkNewCmd() *cobra.Command {
 
 // region work list
 func newWorkListCmd() *cobra.Command {
-	return &cobra.Command{
+	var tags []string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List work entries",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			entries, err := app.ListWork(cmd.Context())
+			entries, err := app.ListWork(cmd.Context(), tags)
 			if err != nil {
 				return err
 			}
 
 			out := cmd.OutOrStdout()
 			if len(entries) == 0 {
+				if len(tags) > 0 {
+					fmt.Fprintf(out, "No work entries match the tag filter %s.\n",
+						strings.Join(tags, ", "))
+					return nil
+				}
 				fmt.Fprintln(out, "No work entries yet. Create one with `orbit work new <title>`.")
 				return nil
 			}
@@ -138,6 +144,9 @@ func newWorkListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringSliceVarP(&tags, "tag", "t", nil,
+		"Only show entries carrying this tag (repeatable, comma-separated; AND semantics)")
+	return cmd
 }
 
 //endregion
@@ -393,6 +402,13 @@ func newWorkForgetCmd() *cobra.Command {
 //endregion
 
 // region work tag
+
+// newWorkTagCmd builds `orbit work tag`. The command both adds/removes
+// a tag directly (its own RunE handles the `[id] <tag>` form) and
+// hosts a `list` subcommand. Because the parent keeps a RunE, the
+// strict-mode walker leaves it alone; cobra routes `work tag list` to
+// the subcommand and any other first arg to the add/remove RunE. A tag
+// literally named "list" is therefore reached via `work tag <id> list`.
 func newWorkTagCmd() *cobra.Command {
 	var remove bool
 	cmd := &cobra.Command{
@@ -425,10 +441,37 @@ func newWorkTagCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&remove, "remove", false,
 		"Remove the tag instead of adding it")
+	cmd.AddCommand(newWorkTagListCmd())
 	return cmd
 }
 
-// TODO: add `work tag list`
+// newWorkTagListCmd builds `orbit work tag list [id]`: print the plain
+// (non-reserved) tags on a work entry, one per line, defaulting to the
+// selected entry. Projects and owners are intentionally omitted — they
+// have `work project list` / `work owner list`.
+func newWorkTagListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list [id]",
+		Short: "List the tags on a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, tags, err := app.ListTags(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(tags) == 0 {
+				fmt.Fprintf(out, "%s has no tags.\n", resolvedID)
+				return nil
+			}
+			for _, t := range tags {
+				fmt.Fprintln(out, t)
+			}
+			return nil
+		},
+	}
+}
 
 //endregion
 
