@@ -7,6 +7,11 @@ version: "3"
 # the smoke task doesn't need its own `env:` block.
 dotenv: ['.env']
 
+# Binary name differs by OS: Windows needs the .exe suffix, everything
+# else is bare `orbit`. {{OS}} is go-task's runtime.GOOS value.
+vars:
+  ORBIT_OUT_BINARY: '{{if eq OS "windows"}}orbit.exe{{else}}orbit{{end}}'
+
 tasks:
 
   build:
@@ -18,7 +23,7 @@ tasks:
         -X github.com/lydietoure/orbit/internal/version.Base={{.VERSION}}
     cmds:
       - mkdir -p dist
-      - go build -ldflags "{{.LDFLAGS}}" -o dist/orbit.exe ./cmd/orbit
+      - go build -ldflags "{{.LDFLAGS}}" -o dist/{{.ORBIT_OUT_BINARY}} ./cmd/orbit
 
   test:
     desc: "Run all tests"
