@@ -76,7 +76,7 @@ func newWorkNewCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "%s %s: %q\n", verb, entry.ID, entry.Title)
 			if padExisted {
-				fmt.Fprintf(out,
+				fmt.Fprintf(cmd.ErrOrStderr(),
 					"Note: pad directory %s already existed and is being reused as-is.\n",
 					entry.PadPath)
 			}
