@@ -38,3 +38,6 @@ __debug_bin*
 coverage.*
 *.coverprofile
 profile.cov
+
+# Local taskfile
+Taskfile.local.yml

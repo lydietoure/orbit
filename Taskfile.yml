@@ -7,6 +7,14 @@ version: "3"
 # the smoke task doesn't need its own `env:` block.
 dotenv: ['.env']
 
+includes:
+  # Keep a Taskfile.local.yml for local-only tasks that you do not want checked into git
+  # This file is .gitignored by default
+  local:
+    taskfile: ./Taskfile.local.yml
+    optional: true
+    flatten: true
+
 # Binary name differs by OS: Windows needs the .exe suffix, everything
 # else is bare `orbit`. {{OS}} is go-task's runtime.GOOS value.
 vars:
