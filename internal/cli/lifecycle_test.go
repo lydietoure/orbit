@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lydietoure/orbit/internal/app"
 	"github.com/lydietoure/orbit/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -274,6 +275,91 @@ func TestDestroy_PromptEmpty_PreservesFiles(t *testing.T) {
 func TestDestroy_RejectsPositionalArgs(t *testing.T) {
 	if err := destroyCmd.Args(destroyCmd, []string{"unexpected"}); err == nil {
 		t.Error("destroyCmd.Args should reject positional arguments")
+	}
+}
+
+// TestDestroy_PreservesUserDataInHome is the core guarantee from
+// issue #43: pads (or any user data) placed inside ORBIT_HOME must
+// survive destroy, and the home directory itself must be kept because
+// it still holds that data.
+func TestDestroy_PreservesUserDataInHome(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "orbit")
+	_ = runInitFor(t, home)
+
+	padDir := filepath.Join(home, "pads")
+	if err := os.MkdirAll(padDir, 0o755); err != nil {
+		t.Fatalf("create pad dir: %v", err)
+	}
+	padFile := filepath.Join(padDir, "scratch.md")
+	if err := os.WriteFile(padFile, []byte("important notes"), 0o644); err != nil {
+		t.Fatalf("write pad file: %v", err)
+	}
+
+	out := runDestroy(t, home, destroyOpts{yes: true})
+
+	if !strings.HasPrefix(out, "Destroyed orbit at ") {
+		t.Errorf("expected 'Destroyed orbit at ...', got:\n%s", out)
+	}
+	if !strings.Contains(out, "home:      preserved") {
+		t.Errorf("expected home-preserved note, got:\n%s", out)
+	}
+	if got, err := os.ReadFile(padFile); err != nil || string(got) != "important notes" {
+		t.Errorf("pad file should survive destroy, got %q, err %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(home, config.DatabaseFileName)); !os.IsNotExist(err) {
+		t.Errorf("database should be deleted, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, config.ConfigFileName)); !os.IsNotExist(err) {
+		t.Errorf("config should be deleted, stat err = %v", err)
+	}
+}
+
+// TestDestroy_WarnsWhenDockInsideHome covers issue #43 option 2: warn
+// the user when their dock (where pads live) is inside ORBIT_HOME.
+func TestDestroy_WarnsWhenDockInsideHome(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "orbit")
+	_ = runInitFor(t, home)
+
+	// Point the dock at a directory inside the orbit home via the
+	// ORBIT_DOCK env var (read-only override resolved by the app layer).
+	t.Setenv(app.DockEnv, filepath.Join(home, "pads"))
+
+	out := runDestroy(t, home, destroyOpts{dryRun: true})
+	if !strings.Contains(out, "your dock is inside the orbit home") {
+		t.Errorf("expected dock-in-home warning, got:\n%s", out)
+	}
+}
+
+// TestDestroy_NoWarnWhenDockOutsideHome ensures the warning is scoped
+// to docks that actually live inside the home directory.
+func TestDestroy_NoWarnWhenDockOutsideHome(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "orbit")
+	_ = runInitFor(t, home)
+
+	t.Setenv(app.DockEnv, t.TempDir())
+
+	out := runDestroy(t, home, destroyOpts{dryRun: true})
+	if strings.Contains(out, "your dock is inside the orbit home") {
+		t.Errorf("did not expect dock-in-home warning, got:\n%s", out)
+	}
+}
+
+func TestPathWithin(t *testing.T) {
+	cases := []struct {
+		parent, child string
+		want          bool
+	}{
+		{"/home/.orbit", "/home/.orbit", true},
+		{"/home/.orbit", "/home/.orbit/pads", true},
+		{"/home/.orbit", "/home/.orbit/pads/p1", true},
+		{"/home/.orbit", "/home/other", false},
+		{"/home/.orbit", "/home/.orbit-extra", false},
+		{"/home/.orbit", "/home", false},
+	}
+	for _, c := range cases {
+		if got := pathWithin(c.parent, c.child); got != c.want {
+			t.Errorf("pathWithin(%q, %q) = %v, want %v", c.parent, c.child, got, c.want)
+		}
 	}
 }
 

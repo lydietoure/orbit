@@ -2,14 +2,17 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/lydietoure/orbit/internal/app"
 	"github.com/lydietoure/orbit/internal/config"
 	"github.com/lydietoure/orbit/internal/db"
 	"github.com/spf13/cobra"
@@ -48,12 +51,14 @@ With --dry-run, prints what would happen without making any changes.`,
 
 var destroyCmd = &cobra.Command{
 	Use:   "destroy",
-	Short: "Remove the orbit home directory and all its contents",
-	Long: `Delete the orbit home directory (config and database). Prompts
-for confirmation by default; pass --yes to skip the prompt or --dry-run
-to preview without deleting.
+	Short: "Remove orbit's config and database",
+	Long: `Delete orbit's own files (config and database). Prompts for
+confirmation by default; pass --yes to skip the prompt or --dry-run to
+preview without deleting.
 
-Pad folders are NOT touched.`,
+Only orbit-managed files are removed. User data — including pads — is
+never touched, even if it lives inside the orbit home directory. The
+home directory itself is removed only when nothing else remains in it.`,
 	Args: cobra.NoArgs,
 	RunE: destroyApplication,
 }
@@ -179,10 +184,22 @@ func destroyApplication(cmd *cobra.Command, _ []string) error {
 	configSize := fileSize(configPath)
 	dbSize := fileSize(dbPath)
 
+	// Resolve the dock before we touch anything so we can warn when the
+	// user keeps their pads inside the orbit home. The dock root may be
+	// stored in the database, which destroy is about to delete.
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	dockWarning := dockInHomeWarning(ctx, home)
+
 	if flagDestroyDryRun {
 		fmt.Fprintf(out, "Would destroy orbit at %s\n", home)
 		fmt.Fprintf(out, "  config:    %s (%s)\n", configPath, humanSize(configSize))
 		fmt.Fprintf(out, "  database:  %s (%s)\n", dbPath, humanSize(dbSize))
+		if dockWarning != "" {
+			fmt.Fprint(out, dockWarning)
+		}
 		return nil
 	}
 
@@ -190,21 +207,103 @@ func destroyApplication(cmd *cobra.Command, _ []string) error {
 		fmt.Fprintf(out, "About to destroy orbit at %s\n", home)
 		fmt.Fprintf(out, "  config:    %s (%s)\n", configPath, humanSize(configSize))
 		fmt.Fprintf(out, "  database:  %s (%s)\n", dbPath, humanSize(dbSize))
+		if dockWarning != "" {
+			fmt.Fprint(out, dockWarning)
+		}
 		if !confirmYes(cmd.InOrStdin(), out, "Continue? [y/N]: ") {
 			fmt.Fprintln(out, "aborted")
 			return nil
 		}
 	}
 
-	if err := os.RemoveAll(home); err != nil {
-		return fmt.Errorf("remove orbit home %q: %w", home, err)
+	// Remove only the files orbit itself manages — never arbitrary user
+	// data that happens to live in the home directory.
+	for _, p := range orbitArtifacts(configPath, dbPath) {
+		if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("remove orbit file %q: %w", p, err)
+		}
 	}
-	slog.Info("orbit home removed", "path", home)
+	slog.Info("orbit files removed", "home", home)
+
+	// Tidy up the home directory, but only if orbit's files were the
+	// last thing in it. Any leftover entries are user data we must keep.
+	homeRemoved, err := removeDirIfEmpty(home)
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(out, "Destroyed orbit at %s\n", home)
 	fmt.Fprintf(out, "  config:    deleted (%s)\n", humanSize(configSize))
 	fmt.Fprintf(out, "  database:  deleted (%s)\n", humanSize(dbSize))
+	if !homeRemoved {
+		fmt.Fprintf(out, "  home:      preserved (%s contains other files)\n", home)
+	}
 	return nil
+}
+
+// orbitArtifacts returns the absolute paths of the files orbit itself
+// creates inside the home directory: the config and the SQLite
+// database, including the WAL/SHM sidecars SQLite writes alongside it.
+// These are the only files `orbit destroy` removes.
+func orbitArtifacts(configPath, dbPath string) []string {
+	return []string{
+		configPath,
+		dbPath,
+		dbPath + "-wal",
+		dbPath + "-shm",
+	}
+}
+
+// removeDirIfEmpty removes dir only when it has no remaining entries,
+// returning whether it was removed. A non-empty directory is left in
+// place because its contents are user data orbit did not create.
+func removeDirIfEmpty(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return true, nil
+		}
+		return false, fmt.Errorf("read orbit home %q: %w", dir, err)
+	}
+	if len(entries) > 0 {
+		slog.Info("orbit home preserved (contains user data)", "path", dir, "entries", len(entries))
+		return false, nil
+	}
+	if err := os.Remove(dir); err != nil {
+		return false, fmt.Errorf("remove orbit home %q: %w", dir, err)
+	}
+	slog.Info("orbit home removed", "path", dir)
+	return true, nil
+}
+
+// dockInHomeWarning returns a human-readable warning when the resolved
+// dock root (where pads live) is inside the orbit home directory, or
+// the empty string otherwise. Resolution failures are treated as "no
+// warning" — destroy must not fail just because the dock is
+// unreadable. The warning reassures the user that their pads are
+// preserved and discourages keeping them under the orbit home.
+func dockInHomeWarning(ctx context.Context, home string) string {
+	root, source, err := app.GetDockRoot(ctx)
+	if err != nil || source == app.DockRootUnset {
+		return ""
+	}
+	if !pathWithin(home, root) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"warning: your dock is inside the orbit home (%s)\n"+
+			"  pads there are preserved, but keep them outside %s to avoid confusion\n",
+		root, home)
+}
+
+// pathWithin reports whether child is parent itself or nested beneath
+// it. Both paths are expected to be absolute and cleaned.
+func pathWithin(parent, child string) bool {
+	rel, err := filepath.Rel(parent, child)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func printInitDryRunDetail(out io.Writer, label, path string, exists bool) {
