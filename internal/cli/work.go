@@ -35,6 +35,8 @@ func getCmdWork() *cobra.Command {
 		newWorkSelectedCmd(),
 		newWorkForgetCmd(),
 		newWorkTagCmd(),
+		newWorkProjectCmd(),
+		newWorkOwnerCmd(),
 		newWorkPadCmd(),
 	)
 	return cmd
@@ -116,14 +118,20 @@ func newWorkListCmd() *cobra.Command {
 				return nil
 			}
 			for _, e := range entries {
-				// Compact one-line format: <id>  <status>  <title>  [tags]
+				// Compact one-line format: <id>  <status>  <title>  <reserved>  [tags]
 				// IDs are fixed-width (5 chars); statuses vary so we
 				// pad to the longest enum value ("in-progress" = 11).
-				// Tags are appended in brackets only when present so the
-				// common (untagged) case stays clean.
+				// Reserved owner/project tags are surfaced separately
+				// (see reservedSummary) so they don't get lost in the
+				// plain-tag bracket, which is appended only when there
+				// are plain tags so the common case stays clean.
+				projects, owner, plain := core.PartitionReservedTags(e.Tags)
 				line := fmt.Sprintf("%s  %-11s  %s", e.ID, e.Status, e.Title)
-				if len(e.Tags) > 0 {
-					line += "  [" + strings.Join(e.Tags, ", ") + "]"
+				if s := reservedSummary(owner, projects); s != "" {
+					line += "  " + s
+				}
+				if len(plain) > 0 {
+					line += "  [" + strings.Join(plain, ", ") + "]"
 				}
 				fmt.Fprintln(out, line)
 			}
@@ -160,6 +168,7 @@ func newWorkShowCmd() *cobra.Command {
 // aligned and the absence is obvious.
 func printWorkEntry(w io.Writer, e core.WorkEntry) {
 	const timeFmt = "2006-01-02 15:04:05 MST"
+	projects, owner, plain := core.PartitionReservedTags(e.Tags)
 	fmt.Fprintf(w, "ID:           %s\n", e.ID)
 	fmt.Fprintf(w, "Title:        %s\n", e.Title)
 	fmt.Fprintf(w, "Status:       %s\n", e.Status)
@@ -168,7 +177,9 @@ func printWorkEntry(w io.Writer, e core.WorkEntry) {
 	}
 	fmt.Fprintf(w, "Description:  %s\n", orNone(e.Description))
 	fmt.Fprintf(w, "Pad:          %s\n", orNone(e.PadPath))
-	fmt.Fprintf(w, "Tags:         %s\n", orNone(strings.Join(e.Tags, ", ")))
+	fmt.Fprintf(w, "Owner:        %s\n", orNone(owner))
+	fmt.Fprintf(w, "Projects:     %s\n", orNone(strings.Join(projects, ", ")))
+	fmt.Fprintf(w, "Tags:         %s\n", orNone(strings.Join(plain, ", ")))
 	fmt.Fprintf(w, "Created:      %s\n", e.CreatedAt.UTC().Format(timeFmt))
 	fmt.Fprintf(w, "Updated:      %s\n", e.UpdatedAt.UTC().Format(timeFmt))
 }
@@ -330,13 +341,38 @@ func newWorkSelectedCmd() *cobra.Command {
 // the line stays tight in the common case.
 func printWorkEntryCompact(w io.Writer, e core.WorkEntry) {
 	const dateFmt = "2006-01-02"
-	tagsPart := ""
-	if len(e.Tags) > 0 {
-		tagsPart = " [" + strings.Join(e.Tags, ", ") + "]"
+	projects, owner, plain := core.PartitionReservedTags(e.Tags)
+	extras := reservedSummary(owner, projects)
+	if len(plain) > 0 {
+		if extras != "" {
+			extras += " "
+		}
+		extras += "[" + strings.Join(plain, ", ") + "]"
+	}
+	if extras != "" {
+		extras = " " + extras
 	}
 	fmt.Fprintf(w, "%s: %s%s (created %s, status: %s)\n",
-		e.ID, e.Title, tagsPart,
+		e.ID, e.Title, extras,
 		e.CreatedAt.UTC().Format(dateFmt), e.Status)
+}
+
+// reservedSummary renders the reserved owner/project tags of an entry
+// as a compact, self-describing string for the one-line views, e.g.
+// "owner:work project:payments project:orbit". Returns "" when the
+// entry has neither an owner nor any projects. Keeping the `owner:` /
+// `project:` prefixes makes the segments unambiguous without inventing
+// new sigils, while grouping them out of the plain-tag bracket keeps
+// the two kinds visually distinct.
+func reservedSummary(owner string, projects []string) string {
+	parts := make([]string, 0, 1+len(projects))
+	if owner != "" {
+		parts = append(parts, core.OwnerTagPrefix+owner)
+	}
+	for _, p := range projects {
+		parts = append(parts, core.ProjectTagPrefix+p)
+	}
+	return strings.Join(parts, " ")
 }
 
 func newWorkForgetCmd() *cobra.Command {
@@ -393,6 +429,190 @@ func newWorkTagCmd() *cobra.Command {
 }
 
 // TODO: add `work tag list`
+
+//endregion
+
+// region work project
+
+// newWorkProjectCmd builds the `orbit work project` group: add, remove,
+// and list the `project:*` tags on an entry. Projects are multi-valued
+// (docs/DATA_MODEL.md), so each leaf does exactly one thing. The parent
+// has no Run of its own — the strict-mode helper in strict.go makes a
+// bare `orbit work project` exit 2 with the usual hint.
+func newWorkProjectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "project",
+		Short: "Add, remove, or list the projects on a work entry",
+	}
+	cmd.AddCommand(
+		newWorkProjectAddCmd(),
+		newWorkProjectRemoveCmd(),
+		newWorkProjectListCmd(),
+	)
+	return cmd
+}
+
+func newWorkProjectAddCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add [id] <name>",
+		Short: "Add a project to a work entry; defaults to the selected entry when only <name> is given",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, name := idAndValue(args)
+			resolvedID, project, err := app.AddProject(cmd.Context(), id, name)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Added project %q to %s\n", project, resolvedID)
+			return nil
+		},
+	}
+}
+
+func newWorkProjectRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove [id] <name>",
+		Short: "Remove a project from a work entry; defaults to the selected entry when only <name> is given",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, name := idAndValue(args)
+			resolvedID, project, err := app.RemoveProject(cmd.Context(), id, name)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed project %q from %s\n", project, resolvedID)
+			return nil
+		},
+	}
+}
+
+func newWorkProjectListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list [id]",
+		Short: "List the projects on a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, projects, err := app.ListProjects(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(projects) == 0 {
+				fmt.Fprintf(out, "%s has no projects.\n", resolvedID)
+				return nil
+			}
+			for _, p := range projects {
+				fmt.Fprintln(out, p)
+			}
+			return nil
+		},
+	}
+}
+
+//endregion
+
+// region work owner
+
+// newWorkOwnerCmd builds the `orbit work owner` group: add (set),
+// remove (clear), and list (show) the single `owner:*` tag on an entry.
+// Owner is single-valued (docs/DATA_MODEL.md); `add` replaces any
+// existing owner atomically in the app layer. The parent has no Run of
+// its own — strict.go makes a bare `orbit work owner` exit 2.
+func newWorkOwnerCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "owner",
+		Short: "Set, remove, or show the owner of a work entry",
+	}
+	cmd.AddCommand(
+		newWorkOwnerAddCmd(),
+		newWorkOwnerRemoveCmd(),
+		newWorkOwnerListCmd(),
+	)
+	return cmd
+}
+
+func newWorkOwnerAddCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add [id] <name>",
+		Short: "Set the owner of a work entry, replacing any existing one; defaults to the selected entry when only <name> is given",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, name := idAndValue(args)
+			resolvedID, owner, err := app.SetOwner(cmd.Context(), id, name)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Set owner of %s to %q\n", resolvedID, owner)
+			return nil
+		},
+	}
+}
+
+func newWorkOwnerRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove [id]",
+		Short: "Remove the owner tag from a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, prev, err := app.ClearOwner(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if prev == "" {
+				fmt.Fprintf(out, "%s has no owner to remove.\n", resolvedID)
+				return nil
+			}
+			fmt.Fprintf(out, "Removed owner %q from %s\n", prev, resolvedID)
+			return nil
+		},
+	}
+}
+
+func newWorkOwnerListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list [id]",
+		Short: "Show the owner of a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, owner, err := app.GetOwner(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if owner == "" {
+				fmt.Fprintf(out, "%s has no owner.\n", resolvedID)
+				return nil
+			}
+			fmt.Fprintln(out, owner)
+			return nil
+		},
+	}
+}
+
+// idAndValue interprets the `[id] <value>` positional shape shared by
+// the reserved-tag add/remove leaves. With two args the first is the
+// entry id and the second the value; with one arg it's the value and
+// the entry defaults to the selection (id "").
+func idAndValue(args []string) (id, value string) {
+	if len(args) == 2 {
+		return args[0], args[1]
+	}
+	return "", args[0]
+}
+
+// optionalID interprets the `[id]` positional shape shared by the
+// reserved-tag list leaves: the id when given, otherwise "" so the
+// app layer falls back to the selected entry.
+func optionalID(args []string) string {
+	if len(args) == 1 {
+		return args[0]
+	}
+	return ""
+}
 
 //endregion
 

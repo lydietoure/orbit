@@ -31,3 +31,66 @@ func NormalizeTagName(raw string) (string, error) {
 	}
 	return name, nil
 }
+
+// Reserved tag prefixes recognised at the application layer. They are
+// ordinary tags in the database; the cardinality rules in
+// docs/DATA_MODEL.md (`project:*` multiple, `owner:*` single) are
+// enforced by the app package, not the schema.
+const (
+	// ProjectTagPrefix marks a tag as a project association.
+	ProjectTagPrefix = "project:"
+	// OwnerTagPrefix marks a tag as the owning context.
+	OwnerTagPrefix = "owner:"
+)
+
+// ProjectTagName builds the canonical `project:<name>` tag from a bare
+// project name. The name is run through [NormalizeTagName]; an already
+// `project:`-prefixed value is accepted and not double-prefixed. The
+// bare name must be non-empty after the prefix is stripped.
+func ProjectTagName(raw string) (string, error) {
+	return reservedTagName(ProjectTagPrefix, "project", raw)
+}
+
+// OwnerTagName builds the canonical `owner:<name>` tag from a bare
+// owner name. Same normalization and prefix-tolerance rules as
+// [ProjectTagName].
+func OwnerTagName(raw string) (string, error) {
+	return reservedTagName(OwnerTagPrefix, "owner", raw)
+}
+
+// reservedTagName normalizes raw, strips an optional leading prefix so
+// callers may pass either `payments` or `project:payments`, and
+// returns prefix+bare. kind is used only for error messages.
+func reservedTagName(prefix, kind, raw string) (string, error) {
+	name, err := NormalizeTagName(raw)
+	if err != nil {
+		return "", err
+	}
+	bare := strings.TrimPrefix(name, prefix)
+	if bare == "" {
+		return "", fmt.Errorf("%s name is required", kind)
+	}
+	return prefix + bare, nil
+}
+
+// PartitionReservedTags splits a sorted tag list into the bare project
+// names, the bare owner name, and the remaining plain tags. The
+// `project:`/`owner:` prefixes are removed from the project and owner
+// results. owner is "" when no `owner:*` tag is present; if more than
+// one is somehow present (the app layer prevents this) the first in
+// sorted order wins. Input order is preserved within each group.
+func PartitionReservedTags(tags []string) (projects []string, owner string, plain []string) {
+	for _, t := range tags {
+		switch {
+		case strings.HasPrefix(t, ProjectTagPrefix):
+			projects = append(projects, strings.TrimPrefix(t, ProjectTagPrefix))
+		case strings.HasPrefix(t, OwnerTagPrefix):
+			if owner == "" {
+				owner = strings.TrimPrefix(t, OwnerTagPrefix)
+			}
+		default:
+			plain = append(plain, t)
+		}
+	}
+	return projects, owner, plain
+}
