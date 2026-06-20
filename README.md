@@ -25,7 +25,42 @@ later milestones (see [Roadmap](#roadmap)). Today you can:
 
 ## Getting Started
 
-### Prerequisites
+### Install 
+
+Grab a prebuilt binary from the
+[latest release](https://github.com/lydietoure/orbit/releases/latest).
+Pick the archive for your platform — e.g. `orbit-0.1.0-windows-amd64.zip`,
+`orbit-0.1.0-darwin-amd64.tar.gz`, or `orbit-0.1.0-linux-amd64.tar.gz`.
+Each archive contains a single `orbit` (or `orbit.exe`) binary.
+
+**Windows**
+
+```powershell
+# Extract the .zip, then move orbit.exe somewhere on your PATH, e.g.:
+mkdir $HOME\bin -Force
+Move-Item .\orbit-0.1.0-windows-amd64\orbit.exe $HOME\bin\
+# Add $HOME\bin to PATH (one-time), then open a new terminal:
+[Environment]::SetEnvironmentVariable(
+  'Path', $env:Path + ";$HOME\bin", 'User')
+orbit --version
+```
+
+**macOS / Linux**
+
+```sh
+tar -xzf orbit-0.1.0-linux-amd64.tar.gz
+sudo mv orbit-0.1.0-linux-amd64/orbit /usr/local/bin/   # or ~/.local/bin
+orbit --version
+```
+
+On macOS the first run may be blocked because the binary is unsigned —
+clear the quarantine flag with `xattr -d com.apple.quarantine $(which orbit)`.
+
+You don't strictly need to touch `PATH`: you can always run the binary
+by its full path. Orbit keeps its data in `~/.orbit/` regardless of where
+the binary lives, so upgrading is just swapping the file.
+
+### Prerequisites (build from source)
 
 - [Go 1.25+](https://go.dev/dl/)
 - [Task](https://taskfile.dev/) (optional, for build tasks)
