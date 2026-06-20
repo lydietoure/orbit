@@ -56,6 +56,25 @@ func TestOpen_CreatesUsableDB(t *testing.T) {
 	}
 }
 
+// TestOpen_RejectsPathWithQuestionMark verifies Open fails fast on a path
+// containing '?', which would otherwise be parsed as the DSN query
+// separator and yield a malformed DSN.
+func TestOpen_RejectsPathWithQuestionMark(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "orbit?.db")
+
+	db, err := Open(path)
+	if db != nil {
+		_ = db.Close()
+		t.Fatalf("Open(%q) returned a non-nil *sql.DB, want nil", path)
+	}
+	if err == nil {
+		t.Fatalf("Open(%q) returned nil error, want an error", path)
+	}
+	if !strings.Contains(err.Error(), "?") {
+		t.Errorf("error %q does not mention the offending '?' character", err)
+	}
+}
+
 // TestInitialize_CreatesTables verifies that applying the schema produces
 // exactly the M0 set of tables (ignoring SQLite's internal bookkeeping).
 func TestInitialize_CreatesTables(t *testing.T) {

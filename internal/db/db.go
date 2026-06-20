@@ -11,6 +11,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -52,8 +53,13 @@ var ErrSchemaDrift = errors.New("database schema is out of date")
 // Open does NOT apply the schema (see Initialize separately) and does NOT create parent directories.
 //
 // The path must not contain a literal '?' character; it would be parsed
-// as the DSN query separator.
+// as the DSN query separator. Open rejects such paths with an error
+// rather than letting them produce a malformed DSN and a confusing
+// downstream failure.
 func Open(path string) (*sql.DB, error) {
+	if strings.Contains(path, "?") {
+		return nil, fmt.Errorf("invalid database path %q: must not contain '?' (reserved as the DSN query separator)", path)
+	}
 	dsn := path + "?_pragma=foreign_keys(on)&_pragma=journal_mode(wal)&_pragma=busy_timeout(5000)"
 	slog.Debug("opening sqlite", "path", path)
 
