@@ -60,6 +60,24 @@ You don't strictly need to touch `PATH`: you can always run the binary
 by its full path. Orbit keeps its data in `~/.orbit/` regardless of where
 the binary lives, so upgrading is just swapping the file.
 
+> [!WARNING]
+> **The released binaries are not code-signed.** Orbit is an early,
+> personal project and doesn't (yet) pay for Windows/Apple signing
+> certificates, so your OS will warn you the first time you run a
+> downloaded binary. Verify the download against the
+> published `.sha256` checksum and proceed:
+>
+> - **Windows:** SmartScreen shows *"Windows protected your PC."* Click
+>   **More info → Run anyway**. The warning fades as the binary builds
+>   reputation across downloads.
+> - **macOS:** Gatekeeper blocks it with *"cannot be opened because the
+>   developer cannot be verified."* Use the `xattr` command above, or
+>   right-click the binary in Finder and choose **Open** once.
+> - **Linux:** no signing prompts; just `chmod +x ./orbit` if needed.
+>
+> Only run binaries you downloaded from the official
+> [releases page](https://github.com/lydietoure/orbit/releases).
+
 ### Prerequisites (build from source)
 
 - [Go 1.25+](https://go.dev/dl/)
