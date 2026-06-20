@@ -31,7 +31,7 @@ Grab a prebuilt binary from the
 [latest release](https://github.com/lydietoure/orbit/releases/latest).
 Pick the archive for your platform — e.g. `orbit-0.1.0-windows-amd64.zip`,
 `orbit-0.1.0-darwin-amd64.tar.gz`, or `orbit-0.1.0-linux-amd64.tar.gz`.
-Each archive contains a single `orbit` (or `orbit.exe`) binary.
+Each archive contains an `orbit-<version>-<os>-<arch>/` directory with the `orbit` (or `orbit.exe`) binary inside.
 
 **Windows**
 
@@ -47,9 +47,8 @@ orbit --version
 
 **macOS / Linux**
 
-```sh
-tar -xzf orbit-0.1.0-linux-amd64.tar.gz
-sudo mv orbit-0.1.0-linux-amd64/orbit /usr/local/bin/   # or ~/.local/bin
+tar -xzf orbit-0.1.0-<os>-<arch>.tar.gz
+sudo mv orbit-0.1.0-<os>-<arch>/orbit /usr/local/bin/   # or ~/.local/bin
 orbit --version
 ```
 

@@ -71,6 +71,7 @@ tasks:
     env:
       CGO_ENABLED: "0"
     cmds:
+      - mkdir -p dist
       - for: { var: TARGETS }
         cmd: |
           GOOS={{splitList "/" .ITEM | first}} GOARCH={{splitList "/" .ITEM | last}} \
