@@ -1,0 +1,10 @@
+# orbit configuration
+#
+# This file is created by `orbit init`. Edit and re-run any orbit
+# command to apply your changes. Comments and formatting are preserved
+# only if you edit by hand — orbit never rewrites this file.
+#
+# Mutable settings (the dock root, auto-create, etc.) are managed via
+# `orbit config ...` and stored in the database, not here. This file
+# is reserved for bootstrap-time defaults that don't make sense to
+# expose as runtime commands.
