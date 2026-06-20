@@ -2,8 +2,7 @@ name: Release
 
 # Build release binaries and publish them to a GitHub Release whenever a
 # version tag is pushed (e.g. v0.1.0). The tag drives the embedded version:
-# v0.1.0 -> 0.1.0, so `orbit --version` reports the clean release string
-# regardless of what VERSION.txt currently holds.
+# v0.1.0 -> 0.1.0, so `orbit --version` reports the clean release string.
 on:
   push:
     tags:
@@ -53,7 +52,7 @@ jobs:
           outdir="dist/orbit-${VERSION}-${GOOS}-${GOARCH}"
           mkdir -p "$outdir"
           go build -trimpath \
-            -ldflags "-s -w -X github.com/lydietoure/orbit/internal/version.Base=${VERSION}" \
+            -ldflags "-s -w -X github.com/lydietoure/orbit/internal/cli.version=${VERSION}" \
             -o "${outdir}/orbit${ext}" ./cmd/orbit
           cp README.md LICENSE CHANGELOG.md "$outdir/" 2>/dev/null || true
 

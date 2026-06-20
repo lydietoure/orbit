@@ -25,10 +25,13 @@ tasks:
   build:
     desc: "Build the orbit binary"
     vars:
+      # Single source of truth: the nearest git tag. Yields e.g. "v0.1.0"
+      # on a tagged commit, "v0.1.0-5-g1a2b3c4" further along, a bare SHA
+      # if untagged, and a "-dirty" suffix for uncommitted changes.
       VERSION:
-        sh: go run ./cmd/version
+        sh: git describe --tags --always --dirty
       LDFLAGS: >-
-        -X github.com/lydietoure/orbit/internal/version.Base={{.VERSION}}
+        -X github.com/lydietoure/orbit/internal/cli.version={{.VERSION}}
     cmds:
       - mkdir -p dist
       - go build -ldflags "{{.LDFLAGS}}" -o dist/{{.ORBIT_OUT_BINARY}} ./cmd/orbit
@@ -62,7 +65,7 @@ tasks:
     vars:
       VERSION: '{{.VERSION | default "dev"}}'
       LDFLAGS: >-
-        -s -w -X github.com/lydietoure/orbit/internal/version.Base={{.VERSION}}
+        -s -w -X github.com/lydietoure/orbit/internal/cli.version={{.VERSION}}
       TARGETS:
         - linux/amd64
         - darwin/amd64
