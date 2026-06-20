@@ -25,7 +25,59 @@ later milestones (see [Roadmap](#roadmap)). Today you can:
 
 ## Getting Started
 
-### Prerequisites
+### Install 
+
+Grab a prebuilt binary from the
+[latest release](https://github.com/lydietoure/orbit/releases/latest).
+Pick the archive for your platform — e.g. `orbit-0.1.0-windows-amd64.zip`,
+`orbit-0.1.0-darwin-amd64.tar.gz`, or `orbit-0.1.0-linux-amd64.tar.gz`.
+Each archive contains an `orbit-<version>-<os>-<arch>/` directory with the `orbit` (or `orbit.exe`) binary inside.
+
+**Windows**
+
+```powershell
+# Extract the .zip, then move orbit.exe somewhere on your PATH, e.g.:
+mkdir $HOME\bin -Force
+Move-Item .\orbit-0.1.0-windows-amd64\orbit.exe $HOME\bin\
+# Add $HOME\bin to PATH (one-time), then open a new terminal:
+[Environment]::SetEnvironmentVariable(
+  'Path', $env:Path + ";$HOME\bin", 'User')
+orbit --version
+```
+
+**macOS / Linux**
+
+tar -xzf orbit-0.1.0-<os>-<arch>.tar.gz
+sudo mv orbit-0.1.0-<os>-<arch>/orbit /usr/local/bin/   # or ~/.local/bin
+orbit --version
+```
+
+On macOS the first run may be blocked because the binary is unsigned —
+clear the quarantine flag with `xattr -d com.apple.quarantine $(which orbit)`.
+
+You don't strictly need to touch `PATH`: you can always run the binary
+by its full path. Orbit keeps its data in `~/.orbit/` regardless of where
+the binary lives, so upgrading is just swapping the file.
+
+> [!WARNING]
+> **The released binaries are not code-signed.** Orbit is an early,
+> personal project and doesn't (yet) pay for Windows/Apple signing
+> certificates, so your OS will warn you the first time you run a
+> downloaded binary. Verify the download against the
+> published `.sha256` checksum and proceed:
+>
+> - **Windows:** SmartScreen shows *"Windows protected your PC."* Click
+>   **More info → Run anyway**. The warning fades as the binary builds
+>   reputation across downloads.
+> - **macOS:** Gatekeeper blocks it with *"cannot be opened because the
+>   developer cannot be verified."* Use the `xattr` command above, or
+>   right-click the binary in Finder and choose **Open** once.
+> - **Linux:** no signing prompts; just `chmod +x ./orbit` if needed.
+>
+> Only run binaries you downloaded from the official
+> [releases page](https://github.com/lydietoure/orbit/releases).
+
+### Prerequisites (build from source)
 
 - [Go 1.25+](https://go.dev/dl/)
 - [Task](https://taskfile.dev/) (optional, for build tasks)

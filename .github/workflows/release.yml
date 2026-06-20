@@ -1,0 +1,110 @@
+name: Release
+
+# Build release binaries and publish them to a GitHub Release whenever a
+# version tag is pushed (e.g. v0.1.0). The tag drives the embedded version:
+# v0.1.0 -> 0.1.0, so `orbit --version` reports the clean release string
+# regardless of what VERSION.txt currently holds.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # required to create the release and upload assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: darwin
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Derive version from tag
+        id: version
+        # Strip the leading "v": refs/tags/v0.1.0 -> 0.1.0
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          CGO_ENABLED: "0" # pure-Go sqlite driver; keeps cross-compiles static
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ext=""
+          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
+          outdir="dist/orbit-${VERSION}-${GOOS}-${GOARCH}"
+          mkdir -p "$outdir"
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/lydietoure/orbit/internal/version.Base=${VERSION}" \
+            -o "${outdir}/orbit${ext}" ./cmd/orbit
+          cp README.md LICENSE CHANGELOG.md "$outdir/" 2>/dev/null || true
+
+      - name: Package
+        id: package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          base="orbit-${VERSION}-${GOOS}-${GOARCH}"
+          cd dist
+          if [ "$GOOS" = "windows" ]; then
+            archive="${base}.zip"
+            zip -r "$archive" "$base" >/dev/null
+          else
+            archive="${base}.tar.gz"
+            tar -czf "$archive" "$base"
+          fi
+          sha256sum "$archive" > "${archive}.sha256"
+          echo "archive=dist/${archive}" >> "$GITHUB_OUTPUT"
+          echo "checksum=dist/${archive}.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Mark pre-1.0 / pre-release tags (e.g. v0.1.0-rc1) accordingly.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.sha256
