@@ -434,59 +434,31 @@ func newWorkTagCmd() *cobra.Command {
 
 // region work project
 
-// newWorkProjectCmd builds `orbit work project`: add, drop (--remove),
-// or — with no name — list the `project:*` tags on an entry. Projects
-// are multi-valued (docs/DATA_MODEL.md), so this mirrors `work tag`'s
-// positional `[id] [name]` shape rather than the single-valued owner
-// command. With no args at all it lists projects on the selected entry.
+// newWorkProjectCmd builds the `orbit work project` group: add, remove,
+// and list the `project:*` tags on an entry. Projects are multi-valued
+// (docs/DATA_MODEL.md), so each leaf does exactly one thing. The parent
+// has no Run of its own — the strict-mode helper in strict.go makes a
+// bare `orbit work project` exit 2 with the usual hint.
 func newWorkProjectCmd() *cobra.Command {
-	var remove bool
 	cmd := &cobra.Command{
-		Use:   "project [id] [name]",
-		Short: "Add, remove (--remove), or list projects on a work entry (defaults to the selected entry)",
-		Long: "Manage the `project:*` tags on a work entry. Projects are " +
-			"multi-valued — an entry can belong to several.\n\n" +
-			"  orbit work project payments          add project:payments to the selected entry\n" +
-			"  orbit work project w-a3f2 payments   …to a specific entry\n" +
-			"  orbit work project --remove payments drop project:payments\n" +
-			"  orbit work project                   list projects on the selected entry\n\n" +
-			"When a single positional is given it is treated as the project " +
-			"name and the selected entry is used; pass two to target a " +
-			"specific entry by id.",
-		Args: cobra.MaximumNArgs(2),
+		Use:   "project",
+		Short: "Add, remove, or list the projects on a work entry",
+	}
+	cmd.AddCommand(
+		newWorkProjectAddCmd(),
+		newWorkProjectRemoveCmd(),
+		newWorkProjectListCmd(),
+	)
+	return cmd
+}
+
+func newWorkProjectAddCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add [id] <name>",
+		Short: "Add a project to a work entry; defaults to the selected entry when only <name> is given",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, name := splitIDAndValue(args)
-
-			// No name → list mode. --remove without a name is a usage
-			// error: there's nothing to remove.
-			if name == "" {
-				if remove {
-					return &UsageError{errors.New(
-						"a project name is required with --remove")}
-				}
-				resolvedID, projects, err := app.ListProjects(cmd.Context(), id)
-				if err != nil {
-					return err
-				}
-				out := cmd.OutOrStdout()
-				if len(projects) == 0 {
-					fmt.Fprintf(out, "%s has no projects.\n", resolvedID)
-					return nil
-				}
-				for _, p := range projects {
-					fmt.Fprintln(out, p)
-				}
-				return nil
-			}
-
-			if remove {
-				resolvedID, project, err := app.RemoveProject(cmd.Context(), id, name)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Removed project %q from %s\n", project, resolvedID)
-				return nil
-			}
+			id, name := idAndValue(args)
 			resolvedID, project, err := app.AddProject(cmd.Context(), id, name)
 			if err != nil {
 				return err
@@ -495,96 +467,151 @@ func newWorkProjectCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&remove, "remove", false,
-		"Remove the project instead of adding it")
-	return cmd
+}
+
+func newWorkProjectRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove [id] <name>",
+		Short: "Remove a project from a work entry; defaults to the selected entry when only <name> is given",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, name := idAndValue(args)
+			resolvedID, project, err := app.RemoveProject(cmd.Context(), id, name)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed project %q from %s\n", project, resolvedID)
+			return nil
+		},
+	}
+}
+
+func newWorkProjectListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list [id]",
+		Short: "List the projects on a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, projects, err := app.ListProjects(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(projects) == 0 {
+				fmt.Fprintf(out, "%s has no projects.\n", resolvedID)
+				return nil
+			}
+			for _, p := range projects {
+				fmt.Fprintln(out, p)
+			}
+			return nil
+		},
+	}
 }
 
 //endregion
 
 // region work owner
 
-// newWorkOwnerCmd builds `orbit work owner`: set, clear (--clear), or —
-// with no name — show the single `owner:*` tag on an entry. Owner is
-// single-valued (docs/DATA_MODEL.md); setting it replaces any existing
-// owner atomically in the app layer. With no args it shows the owner of
-// the selected entry.
+// newWorkOwnerCmd builds the `orbit work owner` group: add (set),
+// remove (clear), and list (show) the single `owner:*` tag on an entry.
+// Owner is single-valued (docs/DATA_MODEL.md); `add` replaces any
+// existing owner atomically in the app layer. The parent has no Run of
+// its own — strict.go makes a bare `orbit work owner` exit 2.
 func newWorkOwnerCmd() *cobra.Command {
-	var clear bool
 	cmd := &cobra.Command{
-		Use:   "owner [id] [name]",
-		Short: "Set, clear (--clear), or show the owner of a work entry (defaults to the selected entry)",
-		Long: "Manage the `owner:*` tag on a work entry. Owner is " +
-			"single-valued — setting it replaces any existing owner.\n\n" +
-			"  orbit work owner work          set owner:work on the selected entry\n" +
-			"  orbit work owner w-a3f2 personal set owner on a specific entry\n" +
-			"  orbit work owner --clear       remove the owner tag\n" +
-			"  orbit work owner               show the current owner\n\n" +
-			"When a single positional is given it is treated as the owner " +
-			"name and the selected entry is used; pass two to target a " +
-			"specific entry by id.",
-		Args: cobra.MaximumNArgs(2),
+		Use:   "owner",
+		Short: "Set, remove, or show the owner of a work entry",
+	}
+	cmd.AddCommand(
+		newWorkOwnerAddCmd(),
+		newWorkOwnerRemoveCmd(),
+		newWorkOwnerListCmd(),
+	)
+	return cmd
+}
+
+func newWorkOwnerAddCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add [id] <name>",
+		Short: "Set the owner of a work entry, replacing any existing one; defaults to the selected entry when only <name> is given",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, name := splitIDAndValue(args)
-			out := cmd.OutOrStdout()
-
-			if clear {
-				if name != "" {
-					return &UsageError{errors.New(
-						"--clear does not take an owner name")}
-				}
-				resolvedID, prev, err := app.ClearOwner(cmd.Context(), id)
-				if err != nil {
-					return err
-				}
-				if prev == "" {
-					fmt.Fprintf(out, "%s has no owner to clear.\n", resolvedID)
-					return nil
-				}
-				fmt.Fprintf(out, "Cleared owner %q from %s\n", prev, resolvedID)
-				return nil
-			}
-
-			// No name → show mode.
-			if name == "" {
-				resolvedID, owner, err := app.GetOwner(cmd.Context(), id)
-				if err != nil {
-					return err
-				}
-				if owner == "" {
-					fmt.Fprintf(out, "%s has no owner.\n", resolvedID)
-					return nil
-				}
-				fmt.Fprintln(out, owner)
-				return nil
-			}
-
+			id, name := idAndValue(args)
 			resolvedID, owner, err := app.SetOwner(cmd.Context(), id, name)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "Set owner of %s to %q\n", resolvedID, owner)
+			fmt.Fprintf(cmd.OutOrStdout(), "Set owner of %s to %q\n", resolvedID, owner)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&clear, "clear", false,
-		"Remove the owner tag instead of setting it")
-	return cmd
 }
 
-// splitIDAndValue interprets the shared `[id] [value]` positional shape
-// used by the reserved-tag commands. With two args the first is the
-// entry id and the second the value; with one arg it's the value and
-// the entry defaults to the selection (id ""); with none both are "".
-func splitIDAndValue(args []string) (id, value string) {
-	switch len(args) {
-	case 2:
-		return args[0], args[1]
-	case 1:
-		return "", args[0]
-	default:
-		return "", ""
+func newWorkOwnerRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove [id]",
+		Short: "Remove the owner tag from a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, prev, err := app.ClearOwner(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if prev == "" {
+				fmt.Fprintf(out, "%s has no owner to remove.\n", resolvedID)
+				return nil
+			}
+			fmt.Fprintf(out, "Removed owner %q from %s\n", prev, resolvedID)
+			return nil
+		},
 	}
+}
+
+func newWorkOwnerListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list [id]",
+		Short: "Show the owner of a work entry (defaults to the selected entry)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := optionalID(args)
+			resolvedID, owner, err := app.GetOwner(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if owner == "" {
+				fmt.Fprintf(out, "%s has no owner.\n", resolvedID)
+				return nil
+			}
+			fmt.Fprintln(out, owner)
+			return nil
+		},
+	}
+}
+
+// idAndValue interprets the `[id] <value>` positional shape shared by
+// the reserved-tag add/remove leaves. With two args the first is the
+// entry id and the second the value; with one arg it's the value and
+// the entry defaults to the selection (id "").
+func idAndValue(args []string) (id, value string) {
+	if len(args) == 2 {
+		return args[0], args[1]
+	}
+	return "", args[0]
+}
+
+// optionalID interprets the `[id]` positional shape shared by the
+// reserved-tag list leaves: the id when given, otherwise "" so the
+// app layer falls back to the selected entry.
+func optionalID(args []string) string {
+	if len(args) == 1 {
+		return args[0]
+	}
+	return ""
 }
 
 //endregion

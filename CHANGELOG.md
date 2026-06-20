@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `orbit work project [id] [name]` — manage the `project:*` tags on a
-  work entry. Add a project, `--remove` one, or list them when no name
-  is given. Projects are multi-valued and adding is idempotent. The id
-  is optional and falls back to the selected entry.
-- `orbit work owner [id] [name]` — manage the single `owner:*` tag on a
-  work entry. Set the owner (replacing any existing one), `--clear` it,
-  or show it when no name is given. The id is optional and falls back
-  to the selected entry.
+- `orbit work project add|remove|list [id] [name]` — manage the
+  `project:*` tags on a work entry. Projects are multi-valued and
+  adding is idempotent. The id is optional and falls back to the
+  selected entry.
+- `orbit work owner add|remove|list [id] [name]` — manage the single
+  `owner:*` tag on a work entry. `add` sets the owner (replacing any
+  existing one), `remove` clears it, and `list` shows it. The id is
+  optional and falls back to the selected entry.
 - `orbit work show`, `work list`, and `work selected` now surface
   owner and project tags distinctly from plain tags.
 
