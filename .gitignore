@@ -14,7 +14,7 @@ dist/
 go.work.sum
 
 # Dependency directories
-vendor/
+# vendor/
 
 # IDE
 .idea/
@@ -33,5 +33,8 @@ Thumbs.db
 __debug_bin*
 
 # Coverage
-coverage.out
-coverage.html
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
