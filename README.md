@@ -2,6 +2,10 @@
 
 **Your developer universe, mapped and in motion**
 
+[![Latest release](https://img.shields.io/github/v/release/lydietoure/orbit?sort=semver&display_name=tag&label=release)](https://github.com/lydietoure/orbit/releases/latest)
+[![CI](https://github.com/lydietoure/orbit/actions/workflows/ci.yml/badge.svg)](https://github.com/lydietoure/orbit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 ---
 
 ## What is Orbit?
