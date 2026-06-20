@@ -307,8 +307,9 @@ orbit work project add <name>               # Add project:* tag (multiple allowe
 orbit work project remove <name>            # Remove project:* tag
 orbit work project list                     # List projects for selected/given entry
 
-orbit work owner <name>                     # Set owner:* tag (replaces any existing)
-orbit work owner --clear                    # Remove owner tag
+orbit work owner add <name>                 # Set owner:* tag (replaces any existing)
+orbit work owner remove                     # Remove owner tag
+orbit work owner list                       # Show owner for selected/given entry
 
 orbit work search <query>                   # Full-text search across work entries and notes
 orbit work select <id>                      # Set as the selected (current) work entry
@@ -491,7 +492,7 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [ ] `orbit work today` / `orbit work diary`
 - [ ] Auto-recording of work days (on link, log, note actions)
 - [ ] `orbit work project add/remove/list` — manage project tags
-- [ ] `orbit work owner` — set/clear owner tag
+- [ ] `orbit work owner add/remove/list` — manage owner tag
 - [ ] `orbit status` — quick overview (selected entry, active entries, recent activity)
 
 ### M2 — Find & filter
