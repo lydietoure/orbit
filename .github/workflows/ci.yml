@@ -24,3 +24,35 @@ jobs:
 
       - name: Test
         run: go test ./... -race -coverprofile=coverage.out
+
+  # Cross-compile every release target so a build break on any
+  # GOOS/GOARCH is caught at PR time rather than during a tag release.
+  # Keep this matrix in sync with .github/workflows/release.yml.
+  cross-build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: darwin
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build
+        env:
+          CGO_ENABLED: "0" # pure-Go sqlite driver; keeps cross-compiles static
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -trimpath -o /dev/null ./cmd/orbit

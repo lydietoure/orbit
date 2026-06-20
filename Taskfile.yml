@@ -43,6 +43,33 @@ tasks:
     desc: "Remove build artifacts"
     cmd: rm -rf dist/
 
+  # Cross-platform release build (mirrors .github/workflows/release.yml).
+  # Produces per-target binaries under dist/ for local verification before
+  # pushing a tag. Set VERSION to override the embedded version string.
+  release:
+    desc: |
+      Build release binaries for all targets into dist/.
+      Override the version with VERSION, e.g.:
+        task release VERSION=0.1.0
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
+      LDFLAGS: >-
+        -s -w -X github.com/lydietoure/orbit/internal/version.Base={{.VERSION}}
+      TARGETS:
+        - linux/amd64
+        - darwin/amd64
+        - windows/amd64
+        - windows/arm64
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - for: { var: TARGETS }
+        cmd: |
+          GOOS={{splitList "/" .ITEM | first}} GOARCH={{splitList "/" .ITEM | last}} \
+          go build -trimpath -ldflags "{{.LDFLAGS}}" \
+            -o dist/orbit-{{.VERSION}}-{{splitList "/" .ITEM | first}}-{{splitList "/" .ITEM | last}}{{if eq (splitList "/" .ITEM | first) "windows"}}.exe{{end}} \
+            ./cmd/orbit
+
   # Live run
   run:
     desc: |
