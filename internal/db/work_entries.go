@@ -259,7 +259,7 @@ func UpdateWorkEntryPad(ctx context.Context, db *sql.DB, id string, padPath stri
 }
 
 // nullableText returns nil for the empty string and s otherwise. Passing
-// nil to a SQL driver writes NULL; passing an empty string writes ”.
+// nil to a SQL driver writes NULL; passing an empty string writes "".
 // Using NULL keeps optional fields cleanly absent.
 func nullableText(s string) any {
 	if s == "" {
