@@ -475,7 +475,7 @@ func newWorkPadSetCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "Pad for %s set to %s\n", entry.ID, entry.PadPath)
 			if padExisted {
-				fmt.Fprintf(out,
+				fmt.Fprintf(cmd.ErrOrStderr(),
 					"Note: directory %s already existed and is being reused as-is.\n",
 					entry.PadPath)
 			}
