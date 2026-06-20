@@ -5,9 +5,13 @@ import (
 	"strings"
 
 	"github.com/lydietoure/orbit/internal/diag"
-	"github.com/lydietoure/orbit/internal/version"
 	"github.com/spf13/cobra"
 )
+
+// version is set at build time via ldflags
+// (-X github.com/lydietoure/orbit/internal/cli.version=...). It defaults
+// to "dev" for a plain `go build` without flags.
+var version = "dev"
 
 // Environment variables read at startup. Explicit CLI flags always win
 // over their env-var counterparts.
@@ -42,7 +46,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Version = version.String()
+	rootCmd.Version = version
 
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false,
 		"Enable verbose (info-level) logging (or set ORBIT_VERBOSE=1)")

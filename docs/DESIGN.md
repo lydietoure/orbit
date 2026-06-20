@@ -482,7 +482,7 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 
 - [ ] `orbit work status <id> <status>` (with `--reason`), `orbit work close`
 - [x] `orbit work select <id>` / `orbit work forget` — set/clear the selected entry
-- [ ] `orbit work show` (no args) — show the selected entry
+- [x] `orbit work show` (no args) — show the selected entry
 - [ ] `orbit link` — link artifacts (note, branch, repo, dir, file, URL) to a work entry
 - [ ] `orbit link` defaults to selected entry when `<id>` is omitted
 - [ ] `orbit work open [id]` — open the pad and/or linked `.code-workspace` (with `--pad`, `--workspace`, `--editor` flags)
