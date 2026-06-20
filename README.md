@@ -14,18 +14,27 @@ Orbit is a personal developer work tracker that brings together all the pieces o
 
 Written in Go. Local-first. CLI-first. LLM-ready.
 
-## What 0.1.0 ships
+## Quick start
 
-0.1.0 is the foundation. Linking, querying, and reporting come in
-later milestones (see [Roadmap](#roadmap)). Today you can:
+```sh
+orbit init                                      # ~/.orbit/{config,orbit.db}
+orbit config dock set ~/work                    # where pads live (optional)
 
-- **Track work entries** with title, status, tags, project, and owner.
-- **Select one entry as the current focus** so other commands default to it.
-- **Attach a "pad" folder** to each entry — auto-provisioned under a
-  configurable dock root, or anywhere you choose.
-- **Store everything locally** in a SQLite database under `~/.orbit/`.
-- **Script against it** with POSIX exit codes (`0`/`1`/`2`), `--yes`
-  to skip prompts, and machine-friendly output where it matters.
+orbit work new "Add caching to payments" -p payments-caching
+# Creates the entry, provisions {dock}/payments-caching/, and selects
+# the new entry as the current focus. --no-dock keeps it in CWD;
+# --no-select skips auto-selection.
+
+orbit work tag caching                          # tag the selected entry
+orbit work show                                 # details of selected
+orbit work pad show                             # the pad path + existence
+
+orbit work list                                 # everything
+orbit work select <id>                          # change focus
+orbit work delete --purge                       # remove entry + pad folder
+```
+
+`orbit --help` and `orbit work --help` list everything that ships.
 
 ## Getting Started
 
@@ -51,6 +60,7 @@ orbit --version
 
 **macOS / Linux**
 
+```sh
 tar -xzf orbit-0.1.0-<os>-<arch>.tar.gz
 sudo mv orbit-0.1.0-<os>-<arch>/orbit /usr/local/bin/   # or ~/.local/bin
 orbit --version
@@ -96,28 +106,6 @@ mkdir -p dist && go build -o dist/orbit ./cmd/orbit
 
 For day-to-day development — tests, smoke runs against a throwaway
 orbit home, environment variables — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-
-### Quick start
-
-```sh
-orbit init                                      # ~/.orbit/{config,orbit.db}
-orbit config dock set ~/work                    # where pads live (optional)
-
-orbit work new "Add caching to payments" -p payments-caching
-# Creates the entry, provisions {dock}/payments-caching/, and selects
-# the new entry as the current focus. --no-dock keeps it in CWD;
-# --no-select skips auto-selection.
-
-orbit work tag caching                          # tag the selected entry
-orbit work show                                 # details of selected
-orbit work pad show                             # the pad path + existence
-
-orbit work list                                 # everything
-orbit work select <id>                          # change focus
-orbit work delete --purge                       # remove entry + pad folder
-```
-
-`orbit --help` and `orbit work --help` list everything that ships.
 
 ## Walkthrough
 
