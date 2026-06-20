@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/lydietoure/orbit/internal/app"
 	"github.com/spf13/cobra"
@@ -153,10 +154,11 @@ on, off (case-insensitive).`,
 // parseBoolFlexible accepts the strconv.ParseBool set plus the
 // common shell-friendly aliases (yes/no, on/off). Case-insensitive.
 func parseBoolFlexible(s string) (bool, error) {
-	switch s {
-	case "yes", "Yes", "YES", "on", "On", "ON":
+	st := strings.ToLower(s)
+	switch st {
+	case "yes", "on", "true":
 		return true, nil
-	case "no", "No", "NO", "off", "Off", "OFF":
+	case "no", "off", "false":
 		return false, nil
 	}
 	return strconv.ParseBool(s)
