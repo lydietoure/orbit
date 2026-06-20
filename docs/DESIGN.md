@@ -492,7 +492,7 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [ ] Auto-recording of work days (on link, log, note actions)
 - [ ] `orbit work project add/remove/list` — manage project tags
 - [ ] `orbit work owner` — set/clear owner tag
-- [ ] `orbit status` — quick overview (selected entry, active entries, recent activity)
+- [x] `orbit status` — quick overview (selected entry, active entries; recent activity pending logs/links)
 
 ### M2 — Find & filter
 > *"I can search across everything and keep my data healthy."*
