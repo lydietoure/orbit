@@ -102,7 +102,7 @@ func TestInitialize_CreatesTables(t *testing.T) {
 		t.Fatalf("rows: %v", err)
 	}
 
-	want := []string{"state", "tags", "work_entries", "work_entry_tags"}
+	want := []string{"artifacts", "notes", "state", "tags", "work_entries", "work_entry_tags"}
 	if !slices.Equal(got, want) {
 		t.Errorf("tables = %v, want %v", got, want)
 	}

@@ -149,7 +149,6 @@ external artifacts, logging activity, and reporting come next.
 The vision in [docs/DESIGN.md](docs/DESIGN.md) goes well beyond
 0.1.0. The CLI does **not** yet ship:
 
-- `orbit link` — attach repos, dirs, files, branches, and notes to an entry
 - `orbit work log` / `today` / `diary` / `export` — reflection & reporting
 - `orbit status` — at-a-glance overview of recent activity
 - `orbit work pad open` — launch the pad in your editor

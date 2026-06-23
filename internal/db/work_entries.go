@@ -155,8 +155,9 @@ func isUniqueTitleViolation(err error) bool {
 
 // GetWorkEntry returns the work entry with the given ID. If no such
 // entry exists, the returned error wraps [ErrWorkEntryNotFound].
-// The returned entry's Tags slice is populated via a follow-up query
-// (alphabetical; nil if untagged).
+// The returned entry's Tags, Artifacts, and Notes slices are
+// populated via follow-up queries (tags alphabetical, artifacts
+// oldest-first, notes newest-date-first; each nil when empty).
 func GetWorkEntry(ctx context.Context, db *sql.DB, id string) (core.WorkEntry, error) {
 	stmt := `SELECT ` + workEntryColumns + ` FROM work_entries WHERE id = ?`
 	row := db.QueryRowContext(ctx, stmt, id)
@@ -172,6 +173,16 @@ func GetWorkEntry(ctx context.Context, db *sql.DB, id string) (core.WorkEntry, e
 		return core.WorkEntry{}, err
 	}
 	e.Tags = tags
+	artifacts, err := ListArtifactsForWorkEntry(ctx, db, e.ID)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	e.Artifacts = artifacts
+	notes, err := ListNotesForWorkEntry(ctx, db, e.ID)
+	if err != nil {
+		return core.WorkEntry{}, err
+	}
+	e.Notes = notes
 	return e, nil
 }
 
@@ -298,4 +309,10 @@ func nullableText(s string) any {
 // order, so plain SQL ORDER BY works as expected.
 func isoTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339Nano)
+}
+
+// parseTime is the inverse of [isoTime]: it parses an RFC3339Nano
+// timestamp string read back from a TEXT column.
+func parseTime(s string) (time.Time, error) {
+	return time.Parse(time.RFC3339Nano, s)
 }

@@ -87,6 +87,15 @@ type WorkEntry struct {
 	// to this entry. Populated by the storage layer on read; left
 	// nil by [NewWorkEntry] (tags are applied after insert).
 	Tags []string
+	// Artifacts is the list of typed references linked to this entry,
+	// oldest first. Populated by the storage layer on read (see
+	// [github.com/lydietoure/orbit/internal/db.GetWorkEntry]); left
+	// nil by [NewWorkEntry].
+	Artifacts []Artifact
+	// Notes is the list of dated note references linked to this entry,
+	// newest date first. Populated by the storage layer on read; left
+	// nil by [NewWorkEntry].
+	Notes []Note
 }
 
 // NewWorkEntryParams holds the user-supplied input for a new work
@@ -149,21 +158,6 @@ func NewWorkEntry(p NewWorkEntryParams) (WorkEntry, error) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}, nil
-}
-
-// ArtifactType classifies an [Artifact] (e.g., a git branch, a pull
-// request URL, a repository path). The set of supported types is
-// defined by the application layer, not the database.
-type ArtifactType string
-
-// Artifact is a reference attached to a [WorkEntry] that points at
-// something living outside Orbit (a branch, PR, repo, etc.). Orbit
-// does not store the content of the artifact, only the reference.
-type Artifact struct {
-	ID          int64
-	WorkEntryID string
-	Type        ArtifactType
-	Value       string
 }
 
 // Tag is a free-form label that can be attached to many [WorkEntry]

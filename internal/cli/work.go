@@ -191,6 +191,18 @@ func printWorkEntry(w io.Writer, e core.WorkEntry) {
 	fmt.Fprintf(w, "Owner:        %s\n", orNone(owner))
 	fmt.Fprintf(w, "Projects:     %s\n", orNone(strings.Join(projects, ", ")))
 	fmt.Fprintf(w, "Tags:         %s\n", orNone(strings.Join(plain, ", ")))
+	if len(e.Artifacts) == 0 {
+		fmt.Fprintf(w, "Artifacts:    %s\n", orNone(""))
+	} else {
+		fmt.Fprintln(w, "Artifacts:")
+		writeArtifactLines(w, e.Artifacts)
+	}
+	if len(e.Notes) == 0 {
+		fmt.Fprintf(w, "Notes:        %s\n", orNone(""))
+	} else {
+		fmt.Fprintln(w, "Notes:")
+		writeNoteLines(w, e.Notes)
+	}
 	fmt.Fprintf(w, "Created:      %s\n", e.CreatedAt.UTC().Format(timeFmt))
 	fmt.Fprintf(w, "Updated:      %s\n", e.UpdatedAt.UTC().Format(timeFmt))
 }

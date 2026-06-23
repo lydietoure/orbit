@@ -490,8 +490,8 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] `orbit work status <id> <status>` (with `--reason`), `orbit work close`
 - [x] `orbit work select <id>` / `orbit work forget` — set/clear the selected entry
 - [x] `orbit work show` (no args) — show the selected entry
-- [ ] `orbit link` — link artifacts (note, branch, repo, dir, file, URL) to a work entry
-- [ ] `orbit link` defaults to selected entry when `<id>` is omitted
+- [x] `orbit link` — link artifacts (note, branch, repo, dir, file, URL) to a work entry
+- [x] `orbit link` defaults to selected entry when `<id>` is omitted
 - [ ] `orbit work open [id]` — open the pad and/or linked `.code-workspace` (with `--pad`, `--workspace`, `--editor` flags)
 - [ ] `orbit work new <title>` shorthand flags: `--repo <path>`, `--workspace <path>`, `--note <path>`, `--project <name>`, `--owner <name>` — collapse the common "start a piece of work" flow into one command (see README walkthrough). The `-p <name>` pad flag is already in M0.
 - [ ] `orbit work log <message>` / `orbit work log list`
