@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `orbit work list --tag <name>` — filter work entries by tag. The flag
   is repeatable and combines with AND semantics (an entry must carry
   every requested tag); matching is case-insensitive.
+- `orbit work status [id] <status>` — set a work entry's status
+  (`new`, `in-progress`, `completed`, `abandoned`). `--reason` is
+  required for `abandoned` and optional otherwise; clearing it removes
+  any prior reason. Every transition is allowed, but moving backward
+  along the lifecycle prints a warning. The id is optional and falls
+  back to the selected entry.
+- `orbit work close [id]` — shortcut that completes a work entry, or
+  with `--abandon --reason` marks it abandoned. The id is optional and
+  falls back to the selected entry.
 - `orbit work project add|remove|list [id] [name]` — manage the
   `project:*` tags on a work entry. Projects are multi-valued and
   adding is idempotent. The id is optional and falls back to the

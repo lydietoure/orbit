@@ -222,6 +222,16 @@ The central entity. Represents a unit of work: a feature, bug, spike, or learnin
 - `COMPLETED` → Done
 - `ABANDONED` → Dropped (reason required)
 
+Transitions follow the rank `NEW < IN_PROGRESS < {COMPLETED, ABANDONED}`
+(the two terminal states are lateral to each other). Every transition is
+allowed, but moving backward along this rank (e.g. `COMPLETED → IN_PROGRESS`)
+is advisory only and prints a warning rather than being blocked.
+
+The `status_reason` belongs to the status it explains, so it is rewritten on
+every transition: it is **required when moving to `ABANDONED`**, optional for
+the other statuses, and supplying an empty reason clears any previously stored
+one.
+
 ### Tag
 
 A free-form label attached to work entries.

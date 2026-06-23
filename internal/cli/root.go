@@ -58,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(getCmdConfig())
 	rootCmd.AddCommand(getCmdWork())
 	rootCmd.AddCommand(getCmdTags())
+	rootCmd.AddCommand(getCmdStatus())
 
 	// Make every command group strict: bare invocations and unknown
 	// subcommands fail with a UsageError (→ exit 2 via main) instead

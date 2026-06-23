@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/lydietoure/orbit/internal/core"
@@ -408,6 +410,82 @@ func SetPad(ctx context.Context, id, rawPath string, noDock bool) (core.WorkEntr
 		return updated, ErrPadAlreadyExisted
 	}
 	return updated, nil
+}
+
+// SetStatusResult is what [SetStatus] (and [CloseWork]) report back: the
+// entry as it now stands, the status it held before the change, and
+// whether the move was a step backward along the lifecycle. Backward is
+// advisory only — the change has already been applied — so callers can
+// warn without failing.
+type SetStatusResult struct {
+	Entry    core.WorkEntry
+	Previous core.WorkEntryStatus
+	Backward bool
+}
+
+// SetStatus is the use case behind `orbit work status`: move an entry to
+// the given status, recording an optional reason, and bump updated_at.
+//
+// A reason is required when status is [core.StatusAbandoned] (you should
+// remember why you dropped it) and optional otherwise. Any other reason
+// is stored as-is; an empty reason clears the column, since the reason
+// belongs to the status it explains.
+//
+// Every status is a legal target — there are no forbidden transitions —
+// but the returned [SetStatusResult.Backward] flags moves that step back
+// down the lifecycle (e.g. completed → in-progress) so the caller can
+// warn the user.
+//
+// An empty id falls back to the currently selected entry; if nothing is
+// selected, returns [ErrNoTargetWorkEntry]. Wraps [db.ErrWorkEntryNotFound]
+// if the id doesn't match any row.
+func SetStatus(ctx context.Context, id string, status core.WorkEntryStatus, reason string) (SetStatusResult, error) {
+	if !status.Valid() {
+		return SetStatusResult{}, fmt.Errorf("invalid work entry status %q", status)
+	}
+	reason = strings.TrimSpace(reason)
+	if status == core.StatusAbandoned && reason == "" {
+		return SetStatusResult{}, errors.New("a reason is required when abandoning a work entry (use --reason)")
+	}
+
+	d, closer, err := open()
+	if err != nil {
+		return SetStatusResult{}, err
+	}
+	defer closer()
+
+	target, err := resolveTargetID(ctx, d, id)
+	if err != nil {
+		return SetStatusResult{}, err
+	}
+	current, err := db.GetWorkEntry(ctx, d, target)
+	if err != nil {
+		return SetStatusResult{}, err
+	}
+	if err := db.UpdateWorkEntryStatus(ctx, d, target, status, reason, time.Now().UTC()); err != nil {
+		return SetStatusResult{}, err
+	}
+	updated, err := db.GetWorkEntry(ctx, d, target)
+	if err != nil {
+		return SetStatusResult{}, err
+	}
+	return SetStatusResult{
+		Entry:    updated,
+		Previous: current.Status,
+		Backward: core.IsBackwardTransition(current.Status, status),
+	}, nil
+}
+
+// CloseWork is the use case behind `orbit work close`: a shortcut that
+// completes an entry, or — with abandon set — abandons it. Abandoning
+// requires a reason (enforced by [SetStatus]); completing accepts an
+// optional one. It is otherwise a thin wrapper over [SetStatus].
+func CloseWork(ctx context.Context, id string, abandon bool, reason string) (SetStatusResult, error) {
+	status := core.StatusCompleted
+	if abandon {
+		status = core.StatusAbandoned
+	}
+	return SetStatus(ctx, id, status, reason)
 }
 
 // SelectWork sets the given entry as the current focus and returns

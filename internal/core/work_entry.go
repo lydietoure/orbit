@@ -36,6 +36,32 @@ func (s WorkEntryStatus) Valid() bool {
 	return false
 }
 
+// rank places a status on the lifecycle line so transitions can be
+// compared: new < in-progress < {completed, abandoned}. The two
+// terminal states share the top rank — moving between them is lateral,
+// not backward. Unknown statuses rank below everything so a transition
+// away from them never reads as "backward".
+func (s WorkEntryStatus) rank() int {
+	switch s {
+	case StatusNew:
+		return 1
+	case StatusInProgress:
+		return 2
+	case StatusCompleted, StatusAbandoned:
+		return 3
+	}
+	return 0
+}
+
+// IsBackwardTransition reports whether moving from one status to another
+// is a step backward along the lifecycle (e.g. completed → in-progress).
+// It is purely informational: every transition is permitted, but callers
+// may warn the user when this returns true. Re-stating the same status is
+// not backward.
+func IsBackwardTransition(from, to WorkEntryStatus) bool {
+	return to.rank() < from.rank()
+}
+
 // WorkEntry is a single unit of tracked work. The ID is a 5-character
 // Crockford base32 string; see [NewID] and docs/DATA_MODEL.md for the
 // encoding scheme.

@@ -221,3 +221,30 @@ func TestWorkEntryStatus_Valid(t *testing.T) {
 		}
 	}
 }
+
+func TestIsBackwardTransition(t *testing.T) {
+	cases := []struct {
+		from, to WorkEntryStatus
+		want     bool
+	}{
+		// Forward moves along the lifecycle are not backward.
+		{StatusNew, StatusInProgress, false},
+		{StatusInProgress, StatusCompleted, false},
+		{StatusInProgress, StatusAbandoned, false},
+		{StatusNew, StatusAbandoned, false},
+		// Backward moves down the lifecycle.
+		{StatusInProgress, StatusNew, true},
+		{StatusCompleted, StatusInProgress, true},
+		{StatusAbandoned, StatusNew, true},
+		// Same status, or lateral between the two terminal states,
+		// is not backward.
+		{StatusInProgress, StatusInProgress, false},
+		{StatusCompleted, StatusAbandoned, false},
+		{StatusAbandoned, StatusCompleted, false},
+	}
+	for _, c := range cases {
+		if got := IsBackwardTransition(c.from, c.to); got != c.want {
+			t.Errorf("IsBackwardTransition(%q, %q) = %v, want %v", c.from, c.to, got, c.want)
+		}
+	}
+}
