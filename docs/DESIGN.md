@@ -477,7 +477,8 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
 - [x] `orbit work show <id>` — show a single work entry (incl. pad path)
 - [x] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the pad folder on disk by default; `--yes` skips the prompt)
-- [x] `orbit work delete <id> --purge` — also delete the pad folder on disk (combined confirmation; `--yes` skips it). The dock root gets no special treatment — it is just a convenience folder.- [x] `orbit work tag <id> <tag>` — add/remove/list tags
+- [x] `orbit work delete <id> --purge` — also delete the pad folder on disk (combined confirmation; `--yes` skips it). The dock root gets no special treatment — it is just a convenience folder.
+- [x] `orbit work tag <id> <tag>` — add/remove/list tags
 - [x] `orbit work list --tag <name>` — filter work entries by tag (repeatable, AND semantics)
 - [x] `orbit tags` — list all tags with per-tag work-entry counts
 - [x] Unit tests for core CRUD and pad path resolution

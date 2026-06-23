@@ -462,7 +462,7 @@ func newWorkTagListCmd() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			if len(tags) == 0 {
-				fmt.Fprintf(out, "%s has no tags.\n", resolvedID)
+				fmt.Fprintf(out, "%s has no plain tags.\n", resolvedID)
 				return nil
 			}
 			for _, t := range tags {
