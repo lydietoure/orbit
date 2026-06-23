@@ -58,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(getCmdConfig())
 	rootCmd.AddCommand(getCmdWork())
 	rootCmd.AddCommand(getCmdLink())
+	rootCmd.AddCommand(getCmdTags())
 	rootCmd.AddCommand(getCmdStatus())
 
 	// Make every command group strict: bare invocations and unknown

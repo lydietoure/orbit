@@ -302,6 +302,7 @@ orbit work close <id> --abandon --reason .. # Abandon with reason (status: aband
 orbit work status <id> <status>             # Set status explicitly (--reason optional)
 orbit work tag <id> <tag>                   # Add a tag (e.g., caching, perf)
 orbit work tag <id> <tag> --remove          # Remove a tag
+orbit work tag list [id]                    # List tags for selected/given entry
 
 orbit work project add <name>               # Add project:* tag (multiple allowed)
 orbit work project remove <name>            # Remove project:* tag
@@ -375,6 +376,7 @@ orbit summary --owner work                  # Summary scoped to an owner
 orbit summary --tag caching                 # Summary filtered by any tag
 
 orbit status                                # Quick overview: active work entries, selected entry, recent notes
+orbit tags                                  # List all tags with per-tag work-entry counts
 orbit doctor                                # Check for stale references (moved/deleted files)
 ```
 
@@ -475,7 +477,10 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 - [x] `orbit work list` — list all work entries (table output: id, title, status, tags, created)
 - [x] `orbit work show <id>` — show a single work entry (incl. pad path)
 - [x] `orbit work delete <id>` — delete a work entry (with confirmation prompt; **does not** delete the pad folder on disk by default; `--yes` skips the prompt)
-- [x] `orbit work delete <id> --purge` — also delete the pad folder on disk (combined confirmation; `--yes` skips it). The dock root gets no special treatment — it is just a convenience folder.- [x] `orbit work tag <id> <tag>` — add/remove tags
+- [x] `orbit work delete <id> --purge` — also delete the pad folder on disk (combined confirmation; `--yes` skips it). The dock root gets no special treatment — it is just a convenience folder.
+- [x] `orbit work tag <id> <tag>` — add/remove/list tags
+- [x] `orbit work list --tag <name>` — filter work entries by tag (repeatable, AND semantics)
+- [x] `orbit tags` — list all tags with per-tag work-entry counts
 - [x] Unit tests for core CRUD and pad path resolution
 
 ### M1 — Daily driver
