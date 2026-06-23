@@ -30,6 +30,8 @@ func getCmdWork() *cobra.Command {
 		newWorkNewCmd(),
 		newWorkListCmd(),
 		newWorkShowCmd(),
+		newWorkStatusCmd(),
+		newWorkCloseCmd(),
 		newWorkDeleteCmd(),
 		newWorkSelectCmd(),
 		newWorkSelectedCmd(),
@@ -201,6 +203,97 @@ func orNone(s string) string {
 		return "(none)"
 	}
 	return s
+}
+
+//endregion
+
+// region work status
+
+// newWorkStatusCmd builds `orbit work status [id] <status>`: move an
+// entry through its lifecycle (new → in-progress → completed|abandoned).
+// With a single positional the status applies to the selected entry;
+// with two, the first is the entry id. A reason is required for
+// `abandoned` and optional otherwise.
+func newWorkStatusCmd() *cobra.Command {
+	var reason string
+	cmd := &cobra.Command{
+		Use:   "status [id] <status>",
+		Short: "Set a work entry's status (defaults to the selected entry when only <status> is given)",
+		Long: "Set a work entry's status: one of new, in-progress, completed, or abandoned.\n\n" +
+			"If [id] is omitted, the currently selected entry is used.\n\n" +
+			"A --reason is required when the status is `abandoned` and optional " +
+			"otherwise; supplying an empty reason clears any previous one. Every " +
+			"transition is allowed, but moving backward along the lifecycle " +
+			"(e.g. completed → in-progress) prints a warning.",
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, raw := idAndValue(args)
+			res, err := app.SetStatus(cmd.Context(), id, core.WorkEntryStatus(raw), reason)
+			if err != nil {
+				return err
+			}
+			printStatusChange(cmd, res)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&reason, "reason", "",
+		"Reason for the status (required for `abandoned`)")
+	return cmd
+}
+
+//endregion
+
+// region work close
+
+// newWorkCloseCmd builds `orbit work close [id]`: the ergonomic shortcut
+// for finishing an entry. By default it sets status to `completed`; with
+// --abandon it sets `abandoned` instead, which requires --reason.
+func newWorkCloseCmd() *cobra.Command {
+	var (
+		abandon bool
+		reason  string
+	)
+	cmd := &cobra.Command{
+		Use:   "close [id]",
+		Short: "Complete a work entry (or abandon it with --abandon --reason)",
+		Long: "Close a work entry by marking it completed.\n\n" +
+			"If [id] is omitted, the currently selected entry is used.\n\n" +
+			"Pass --abandon to mark the entry abandoned instead of completed; " +
+			"that requires a --reason explaining why it was dropped. A --reason " +
+			"is optional when completing.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			res, err := app.CloseWork(cmd.Context(), optionalID(args), abandon, reason)
+			if err != nil {
+				return err
+			}
+			printStatusChange(cmd, res)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&abandon, "abandon", false,
+		"Mark the entry as abandoned instead of completed (requires --reason)")
+	cmd.Flags().StringVar(&reason, "reason", "",
+		"Reason for closing (required with --abandon)")
+	return cmd
+}
+
+// printStatusChange confirms a status change on stdout and, when the
+// move stepped backward along the lifecycle, prints an advisory warning
+// to stderr first so it stands apart from the success line.
+func printStatusChange(cmd *cobra.Command, res app.SetStatusResult) {
+	e := res.Entry
+	if res.Backward {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Warning: moving %s backward from %s to %s.\n",
+			e.ID, res.Previous, e.Status)
+	}
+	out := cmd.OutOrStdout()
+	if e.StatusReason != "" {
+		fmt.Fprintf(out, "%s is now %s (%s).\n", e.ID, e.Status, e.StatusReason)
+		return
+	}
+	fmt.Fprintf(out, "%s is now %s.\n", e.ID, e.Status)
 }
 
 //endregion

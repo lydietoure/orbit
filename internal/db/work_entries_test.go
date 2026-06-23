@@ -439,3 +439,67 @@ func TestUpdateWorkEntryPad_NotFoundErr(t *testing.T) {
 		t.Errorf("err = %v, want ErrWorkEntryNotFound", err)
 	}
 }
+
+func TestUpdateWorkEntryStatus_SetsStatusReasonAndBumpsUpdatedAt(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "status target"})
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+
+	newUpdatedAt := entry.UpdatedAt.Add(time.Hour)
+	if err := UpdateWorkEntryStatus(context.Background(), db, entry.ID,
+		core.StatusAbandoned, "descoped", newUpdatedAt); err != nil {
+		t.Fatalf("UpdateWorkEntryStatus: %v", err)
+	}
+
+	got, err := GetWorkEntry(context.Background(), db, entry.ID)
+	if err != nil {
+		t.Fatalf("GetWorkEntry: %v", err)
+	}
+	if got.Status != core.StatusAbandoned {
+		t.Errorf("Status = %q, want %q", got.Status, core.StatusAbandoned)
+	}
+	if got.StatusReason != "descoped" {
+		t.Errorf("StatusReason = %q, want %q", got.StatusReason, "descoped")
+	}
+	if !got.UpdatedAt.Equal(newUpdatedAt) {
+		t.Errorf("UpdatedAt = %v, want %v", got.UpdatedAt, newUpdatedAt)
+	}
+}
+
+func TestUpdateWorkEntryStatus_EmptyReasonClearsColumn(t *testing.T) {
+	db := newTestDB(t)
+	entry := makeValidEntry(t, core.NewWorkEntryParams{
+		Title:        "reason clear target",
+		Status:       core.StatusAbandoned,
+		StatusReason: "to be cleared",
+	})
+	if err := InsertWorkEntry(context.Background(), db, entry); err != nil {
+		t.Fatalf("InsertWorkEntry: %v", err)
+	}
+
+	if err := UpdateWorkEntryStatus(context.Background(), db, entry.ID,
+		core.StatusCompleted, "", time.Now().UTC()); err != nil {
+		t.Fatalf("UpdateWorkEntryStatus: %v", err)
+	}
+
+	// The reason column should go to NULL (not empty string), matching
+	// the nullableText contract relied on by scanWorkEntry.
+	var reason sql.NullString
+	if err := db.QueryRow(`SELECT status_reason FROM work_entries WHERE id = ?`, entry.ID).Scan(&reason); err != nil {
+		t.Fatalf("read status_reason: %v", err)
+	}
+	if reason.Valid {
+		t.Errorf("status_reason = %q after clear, want NULL", reason.String)
+	}
+}
+
+func TestUpdateWorkEntryStatus_NotFoundErr(t *testing.T) {
+	db := newTestDB(t)
+	err := UpdateWorkEntryStatus(context.Background(), db, "ghost",
+		core.StatusCompleted, "", time.Now().UTC())
+	if !errors.Is(err, ErrWorkEntryNotFound) {
+		t.Errorf("err = %v, want ErrWorkEntryNotFound", err)
+	}
+}

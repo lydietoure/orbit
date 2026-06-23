@@ -269,6 +269,31 @@ func UpdateWorkEntryPad(ctx context.Context, db *sql.DB, id string, padPath stri
 	return nil
 }
 
+// UpdateWorkEntryStatus sets the status and status_reason on the row
+// with the given id and bumps updated_at. An empty reason clears the
+// column (stored as NULL via [nullableText]) — the reason belongs to
+// the status it explains, so it does not linger across changes.
+// Validation (valid status, abandoned-requires-reason) is the caller's
+// job; this layer just writes. Returns a wrapped [ErrWorkEntryNotFound]
+// if no row matched.
+func UpdateWorkEntryStatus(ctx context.Context, db *sql.DB, id string, status core.WorkEntryStatus, reason string, updatedAt time.Time) error {
+	res, err := db.ExecContext(ctx,
+		`UPDATE work_entries SET status = ?, status_reason = ?, updated_at = ? WHERE id = ?`,
+		string(status), nullableText(reason), isoTime(updatedAt), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update work entry %s status: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update work entry %s status: rows affected: %w", id, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: %s", ErrWorkEntryNotFound, id)
+	}
+	return nil
+}
+
 // nullableText returns nil for the empty string and s otherwise. Passing
 // nil to a SQL driver writes NULL; passing an empty string writes "".
 // Using NULL keeps optional fields cleanly absent.

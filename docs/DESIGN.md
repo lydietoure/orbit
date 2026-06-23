@@ -481,7 +481,7 @@ See [TECH_STACK.md](TECH_STACK.md) for the full technology choices and project l
 ### M1 — Daily driver
 > *"I can track my work through its lifecycle, link artifacts, and take quick notes."*
 
-- [ ] `orbit work status <id> <status>` (with `--reason`), `orbit work close`
+- [x] `orbit work status <id> <status>` (with `--reason`), `orbit work close`
 - [x] `orbit work select <id>` / `orbit work forget` — set/clear the selected entry
 - [x] `orbit work show` (no args) — show the selected entry
 - [x] `orbit link` — link artifacts (note, branch, repo, dir, file, URL) to a work entry
