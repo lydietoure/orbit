@@ -192,16 +192,112 @@ func normalizeUniqueTags(raw []string) ([]string, error) {
 	return out, nil
 }
 
-// ListWork returns every work entry, newest first. An empty database
-// is not an error — the returned slice is simply empty.
-func ListWork(ctx context.Context) ([]core.WorkEntry, error) {
+// ListWork returns work entries, newest first. When filterTags is
+// non-empty the result is narrowed to entries carrying every one of
+// the (normalized) tags — repeatable AND semantics, matching
+// `orbit work list --tag a --tag b`. An empty database, or a filter
+// that matches nothing, is not an error — the returned slice is simply
+// empty. Filter tags are normalized via [core.NormalizeTagName] so the
+// match is case-insensitive and consistent with how tags are stored.
+func ListWork(ctx context.Context, filterTags []string) ([]core.WorkEntry, error) {
+	want, err := normalizeUniqueTags(filterTags)
+	if err != nil {
+		return nil, err
+	}
+
 	d, closer, err := open()
 	if err != nil {
 		return nil, err
 	}
 	defer closer()
 
-	return db.ListWorkEntries(ctx, d)
+	entries, err := db.ListWorkEntries(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	if len(want) == 0 {
+		return entries, nil
+	}
+	return filterEntriesByTags(entries, want), nil
+}
+
+// filterEntriesByTags keeps only the entries whose Tags contain every
+// name in want (AND semantics). want is assumed already normalized;
+// entry tags are stored normalized, so a direct set membership test is
+// correct.
+func filterEntriesByTags(entries []core.WorkEntry, want []string) []core.WorkEntry {
+	out := make([]core.WorkEntry, 0, len(entries))
+	for _, e := range entries {
+		has := make(map[string]struct{}, len(e.Tags))
+		for _, t := range e.Tags {
+			has[t] = struct{}{}
+		}
+		match := true
+		for _, w := range want {
+			if _, ok := has[w]; !ok {
+				match = false
+				break
+			}
+		}
+		if match {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// ListTags returns the plain (non-reserved) tag names on a work entry,
+// sorted. Reserved `project:*` / `owner:*` tags are excluded — they
+// have dedicated `work project list` / `work owner list` views — so
+// `work tag list` shows exactly the free-form labels. An entry with no
+// plain tags yields a nil slice, not an error.
+//
+// An empty id falls back to the currently selected entry; wraps
+// [db.ErrWorkEntryNotFound] / [ErrNoTargetWorkEntry] as the other
+// per-entry use cases do.
+func ListTags(ctx context.Context, id string) (resolvedID string, tags []string, err error) {
+	d, closer, err := open()
+	if err != nil {
+		return "", nil, err
+	}
+	defer closer()
+
+	target, err := resolveTargetID(ctx, d, id)
+	if err != nil {
+		return "", nil, err
+	}
+	entry, err := db.GetWorkEntry(ctx, d, target)
+	if err != nil {
+		return "", nil, err
+	}
+	_, _, plain := core.PartitionReservedTags(entry.Tags)
+	return target, plain, nil
+}
+
+// ListAllTags returns the global tag vocabulary with per-tag work-entry
+// counts, alphabetical. Reserved `project:*` / `owner:*` tags are
+// omitted so they aren't surfaced twice — they have their own
+// project/owner views. An empty vocabulary returns a nil slice, not an
+// error.
+func ListAllTags(ctx context.Context) ([]core.TagCount, error) {
+	d, closer, err := open()
+	if err != nil {
+		return nil, err
+	}
+	defer closer()
+
+	all, err := db.ListAllTags(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var out []core.TagCount
+	for _, tc := range all {
+		if core.IsReservedTag(tc.Name) {
+			continue
+		}
+		out = append(out, tc)
+	}
+	return out, nil
 }
 
 // ShowWork returns the work entry with the given ID, or wraps

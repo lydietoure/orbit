@@ -32,6 +32,14 @@ func NormalizeTagName(raw string) (string, error) {
 	return name, nil
 }
 
+// TagCount pairs a tag name with the number of work entries that
+// carry it. It is the read-model behind `orbit tags`, which lists the
+// tag vocabulary with per-tag usage counts.
+type TagCount struct {
+	Name  string
+	Count int
+}
+
 // Reserved tag prefixes recognised at the application layer. They are
 // ordinary tags in the database; the cardinality rules in
 // docs/DATA_MODEL.md (`project:*` multiple, `owner:*` single) are
@@ -71,6 +79,15 @@ func reservedTagName(prefix, kind, raw string) (string, error) {
 		return "", fmt.Errorf("%s name is required", kind)
 	}
 	return prefix + bare, nil
+}
+
+// IsReservedTag reports whether name uses one of the reserved tag
+// conventions (`project:*` or `owner:*`). Generic tag displays such as
+// `orbit tags` use it to hide reserved tags, which have their own
+// dedicated `work project` / `work owner` views.
+func IsReservedTag(name string) bool {
+	return strings.HasPrefix(name, ProjectTagPrefix) ||
+		strings.HasPrefix(name, OwnerTagPrefix)
 }
 
 // PartitionReservedTags splits a sorted tag list into the bare project
