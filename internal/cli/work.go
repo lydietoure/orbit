@@ -207,16 +207,16 @@ func orNone(s string) string {
 // region work status
 
 // newWorkStatusCmd builds `orbit work status [id] <status>`: move an
-// entry through its lifecycle (new → in-progress → completed|abandoned).
-// With a single positional the status applies to the selected entry;
-// with two, the first is the entry id. A reason is required for
-// `abandoned` and optional otherwise.
+// entry through its lifecycle (new → in-progress/paused →
+// completed|abandoned). With a single positional the status applies to
+// the selected entry; with two, the first is the entry id. A reason is
+// required for `abandoned` and optional otherwise.
 func newWorkStatusCmd() *cobra.Command {
 	var reason string
 	cmd := &cobra.Command{
 		Use:   "status [id] <status>",
 		Short: "Set a work entry's status (defaults to the selected entry when only <status> is given)",
-		Long: "Set a work entry's status: one of new, in-progress, completed, or abandoned.\n\n" +
+		Long: "Set a work entry's status: one of new, in-progress, paused, completed, or abandoned.\n\n" +
 			"If [id] is omitted, the currently selected entry is used.\n\n" +
 			"A --reason is required when the status is `abandoned` and optional " +
 			"otherwise; supplying an empty reason clears any previous one. Every " +

@@ -63,6 +63,7 @@ A WorkEntry has a **status** and an optional **reason** (free text explaining wh
 |---|---|---|
 | `new` | *(none)* | Just created, not yet started |
 | `in-progress` | *(none)* | Actively being worked on |
+| `paused` | *(none)* | Started but temporarily on hold |
 | `completed` | *(none)* | Done |
 | `abandoned` | *(required)* | Dropped — reason explains why (e.g., "descoped", "superseded by #m2k7a") |
 

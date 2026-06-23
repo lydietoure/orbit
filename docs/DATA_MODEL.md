@@ -219,13 +219,15 @@ The central entity. Represents a unit of work: a feature, bug, spike, or learnin
 **Status Lifecycle:**
 - `NEW` → Just created, not started
 - `IN_PROGRESS` → Actively being worked on
+- `PAUSED` → Started but temporarily on hold
 - `COMPLETED` → Done
 - `ABANDONED` → Dropped (reason required)
 
-Transitions follow the rank `NEW < IN_PROGRESS < {COMPLETED, ABANDONED}`
-(the two terminal states are lateral to each other). Every transition is
-allowed, but moving backward along this rank (e.g. `COMPLETED → IN_PROGRESS`)
-is advisory only and prints a warning rather than being blocked.
+Transitions follow the rank `NEW < {IN_PROGRESS, PAUSED} < {COMPLETED, ABANDONED}`.
+`IN_PROGRESS` and `PAUSED` share a rank (pausing and resuming are lateral
+moves), as do the two terminal states. Every transition is allowed, but
+moving backward along this rank (e.g. `COMPLETED → IN_PROGRESS`) is advisory
+only and prints a warning rather than being blocked.
 
 The `status_reason` belongs to the status it explains, so it is rewritten on
 every transition: it is **required when moving to `ABANDONED`**, optional for
