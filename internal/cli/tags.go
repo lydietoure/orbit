@@ -27,7 +27,7 @@ func getCmdTags() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			if len(counts) == 0 {
-				fmt.Fprintln(out, "No tags yet. Add one with `orbit work tag <name>`.")
+				fmt.Fprintln(out, "No tags yet. Add one with `orbit work tag <tag>`.")
 				return nil
 			}
 			for _, tc := range counts {
