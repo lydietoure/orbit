@@ -229,14 +229,18 @@ func TestIsBackwardTransition(t *testing.T) {
 	}{
 		// Forward moves along the lifecycle are not backward.
 		{StatusNew, StatusInProgress, false},
-		{StatusInProgress, StatusPaused, false},
+		{StatusNew, StatusPaused, false},
 		{StatusPaused, StatusCompleted, false},
 		{StatusInProgress, StatusCompleted, false},
 		{StatusInProgress, StatusAbandoned, false},
 		{StatusNew, StatusAbandoned, false},
+		// in-progress and paused are lateral — moving between them in
+		// either direction is not backward.
+		{StatusInProgress, StatusPaused, false},
+		{StatusPaused, StatusInProgress, false},
 		// Backward moves down the lifecycle.
 		{StatusInProgress, StatusNew, true},
-		{StatusPaused, StatusInProgress, true},
+		{StatusPaused, StatusNew, true},
 		{StatusCompleted, StatusPaused, true},
 		{StatusCompleted, StatusInProgress, true},
 		{StatusAbandoned, StatusNew, true},

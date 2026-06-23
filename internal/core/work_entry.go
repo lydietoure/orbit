@@ -20,8 +20,9 @@ const (
 	StatusNew WorkEntryStatus = "new"
 	// StatusInProgress means the entry is actively being worked on.
 	StatusInProgress WorkEntryStatus = "in-progress"
-	// StatusPaused means work has started but is temporarily on hold;
-	// it sits between in-progress and completed on the lifecycle.
+	// StatusPaused means work has started but is temporarily on hold.
+	// It is lateral to in-progress: pausing and resuming move between
+	// the two without counting as progress or a step backward.
 	StatusPaused WorkEntryStatus = "paused"
 	// StatusCompleted means the entry is finished.
 	StatusCompleted WorkEntryStatus = "completed"
@@ -40,20 +41,19 @@ func (s WorkEntryStatus) Valid() bool {
 }
 
 // rank places a status on the lifecycle line so transitions can be
-// compared: new < in-progress < paused < {completed, abandoned}. The
-// two terminal states share the top rank — moving between them is
-// lateral, not backward. Unknown statuses rank below everything so a
-// transition away from them never reads as "backward".
+// compared: new < {in-progress, paused} < {completed, abandoned}.
+// in-progress and paused share a rank — pausing and resuming are
+// lateral moves, not progress or regress — as do the two terminal
+// states. Unknown statuses rank below everything so a transition away
+// from them never reads as "backward".
 func (s WorkEntryStatus) rank() int {
 	switch s {
 	case StatusNew:
 		return 1
-	case StatusInProgress:
+	case StatusInProgress, StatusPaused:
 		return 2
-	case StatusPaused:
-		return 3
 	case StatusCompleted, StatusAbandoned:
-		return 4
+		return 3
 	}
 	return 0
 }

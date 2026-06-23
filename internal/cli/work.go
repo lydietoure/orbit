@@ -198,7 +198,7 @@ func orNone(s string) string {
 // region work status
 
 // newWorkStatusCmd builds `orbit work status [id] <status>`: move an
-// entry through its lifecycle (new → in-progress → paused →
+// entry through its lifecycle (new → in-progress/paused →
 // completed|abandoned). With a single positional the status applies to
 // the selected entry; with two, the first is the entry id. A reason is
 // required for `abandoned` and optional otherwise.
