@@ -28,8 +28,8 @@ func TestStatus_EmptyDatabase(t *testing.T) {
 }
 
 // TestStatus_ReportsSelectedAndActive checks the populated path: the
-// selected entry is reported, and only new/in-progress entries are
-// counted as active (completed/abandoned are excluded).
+// selected entry is reported, and only new/in-progress/paused entries
+// are counted as active (completed/abandoned are excluded).
 func TestStatus_ReportsSelectedAndActive(t *testing.T) {
 	setupInitializedHome(t)
 	ctx := context.Background()
@@ -43,6 +43,14 @@ func TestStatus_ReportsSelectedAndActive(t *testing.T) {
 	if _, err := CreateWork(ctx, CreateWorkParams{Title: "queued entry", NoSelect: true}); err != nil {
 		t.Fatalf("CreateWork queued: %v", err)
 	}
+	// A paused entry should still count as active.
+	paused, err := CreateWork(ctx, CreateWorkParams{Title: "paused entry", NoSelect: true})
+	if err != nil {
+		t.Fatalf("CreateWork paused: %v", err)
+	}
+	if _, err := SetStatus(ctx, paused.ID, core.StatusPaused, ""); err != nil {
+		t.Fatalf("SetStatus paused: %v", err)
+	}
 
 	overview, err := Status(ctx)
 	if err != nil {
@@ -55,14 +63,14 @@ func TestStatus_ReportsSelectedAndActive(t *testing.T) {
 	if overview.Selected.ID != selected.ID {
 		t.Errorf("Selected.ID = %q, want %q", overview.Selected.ID, selected.ID)
 	}
-	if overview.ActiveTotal != 2 {
-		t.Errorf("ActiveTotal = %d, want 2", overview.ActiveTotal)
+	if overview.ActiveTotal != 3 {
+		t.Errorf("ActiveTotal = %d, want 3", overview.ActiveTotal)
 	}
-	if len(overview.Active) != 2 {
-		t.Fatalf("len(Active) = %d, want 2", len(overview.Active))
+	if len(overview.Active) != 3 {
+		t.Fatalf("len(Active) = %d, want 3", len(overview.Active))
 	}
 	for _, e := range overview.Active {
-		if e.Status != core.StatusNew && e.Status != core.StatusInProgress {
+		if e.Status != core.StatusNew && e.Status != core.StatusInProgress && e.Status != core.StatusPaused {
 			t.Errorf("active entry %s has non-active status %q", e.ID, e.Status)
 		}
 	}

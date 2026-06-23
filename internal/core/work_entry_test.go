@@ -201,7 +201,7 @@ func TestNewID_CollisionsRareInTightLoop(t *testing.T) {
 }
 
 func TestWorkEntryStatus_Valid(t *testing.T) {
-	valid := []WorkEntryStatus{StatusNew, StatusInProgress, StatusCompleted, StatusAbandoned}
+	valid := []WorkEntryStatus{StatusNew, StatusInProgress, StatusPaused, StatusCompleted, StatusAbandoned}
 	for _, s := range valid {
 		if !s.Valid() {
 			t.Errorf("%q should be valid", s)
@@ -229,16 +229,21 @@ func TestIsBackwardTransition(t *testing.T) {
 	}{
 		// Forward moves along the lifecycle are not backward.
 		{StatusNew, StatusInProgress, false},
+		{StatusInProgress, StatusPaused, false},
+		{StatusPaused, StatusCompleted, false},
 		{StatusInProgress, StatusCompleted, false},
 		{StatusInProgress, StatusAbandoned, false},
 		{StatusNew, StatusAbandoned, false},
 		// Backward moves down the lifecycle.
 		{StatusInProgress, StatusNew, true},
+		{StatusPaused, StatusInProgress, true},
+		{StatusCompleted, StatusPaused, true},
 		{StatusCompleted, StatusInProgress, true},
 		{StatusAbandoned, StatusNew, true},
 		// Same status, or lateral between the two terminal states,
 		// is not backward.
 		{StatusInProgress, StatusInProgress, false},
+		{StatusPaused, StatusPaused, false},
 		{StatusCompleted, StatusAbandoned, false},
 		{StatusAbandoned, StatusCompleted, false},
 	}

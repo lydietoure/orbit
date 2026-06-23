@@ -14,8 +14,8 @@ import (
 const MaxStatusActiveEntries = 10
 
 // StatusOverview is the data behind `orbit status`: the currently
-// selected entry (if any) plus the active entries (status new or
-// in-progress), most recent first.
+// selected entry (if any) plus the active entries (status new,
+// in-progress, or paused), most recent first.
 type StatusOverview struct {
 	// Selected is the currently selected entry, or nil when nothing
 	// is selected.
@@ -30,9 +30,9 @@ type StatusOverview struct {
 
 // Status is the use case behind `orbit status`: gather a quick
 // overview of current state. It reports the selected entry (or none)
-// and the active entries — those whose status is [core.StatusNew] or
-// [core.StatusInProgress] — newest first and capped at
-// [MaxStatusActiveEntries].
+// and the active entries — those whose status is [core.StatusNew],
+// [core.StatusInProgress], or [core.StatusPaused] — newest first and
+// capped at [MaxStatusActiveEntries].
 //
 // An empty database is not an error: the overview simply has no
 // selection and no active entries.
@@ -64,7 +64,7 @@ func Status(ctx context.Context) (StatusOverview, error) {
 	// place preserves the desired order.
 	active := make([]core.WorkEntry, 0, len(entries))
 	for _, e := range entries {
-		if e.Status == core.StatusNew || e.Status == core.StatusInProgress {
+		if e.Status == core.StatusNew || e.Status == core.StatusInProgress || e.Status == core.StatusPaused {
 			active = append(active, e)
 		}
 	}

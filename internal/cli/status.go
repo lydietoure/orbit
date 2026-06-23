@@ -19,7 +19,7 @@ func getCmdStatus() *cobra.Command {
 		Use:   "status",
 		Short: "Show a quick overview of current state",
 		Long: "Print an at-a-glance dashboard: the currently selected work " +
-			"entry and the active entries (status new or in-progress).",
+			"entry and the active entries (status new, in-progress, or paused).",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			overview, err := app.Status(cmd.Context())

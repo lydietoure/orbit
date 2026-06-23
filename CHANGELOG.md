@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `orbit work status [id] <status>` — set a work entry's status
-  (`new`, `in-progress`, `completed`, `abandoned`). `--reason` is
+  (`new`, `in-progress`, `paused`, `completed`, `abandoned`). `--reason` is
   required for `abandoned` and optional otherwise; clearing it removes
   any prior reason. Every transition is allowed, but moving backward
   along the lifecycle prints a warning. The id is optional and falls
