@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/lydietoure/orbit/internal/core"
 	"github.com/lydietoure/orbit/internal/db"
 )
 
@@ -364,5 +365,139 @@ func TestSetPad_EmptyIDFallsBackToSelected(t *testing.T) {
 	if entry.ID != created.ID {
 		t.Errorf("resolved id = %q, want %q (should have used the selected entry)",
 			entry.ID, created.ID)
+	}
+}
+
+// TestSetStatus_UpdatesStatusReasonAndDetectsBackward covers the core
+// behaviors of `orbit work status`: the status and reason persist and a
+// move down the lifecycle is flagged as backward.
+func TestSetStatus_UpdatesStatusReasonAndDetectsBackward(t *testing.T) {
+	setupInitializedHome(t)
+
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title:    "status target",
+		NoSelect: true, // born StatusNew
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+
+	// Forward: new → completed, with an optional reason.
+	res, err := SetStatus(context.Background(), created.ID, core.StatusCompleted, "shipped")
+	if err != nil {
+		t.Fatalf("SetStatus completed: %v", err)
+	}
+	if res.Entry.Status != core.StatusCompleted {
+		t.Errorf("Status = %q, want %q", res.Entry.Status, core.StatusCompleted)
+	}
+	if res.Entry.StatusReason != "shipped" {
+		t.Errorf("StatusReason = %q, want %q", res.Entry.StatusReason, "shipped")
+	}
+	if res.Previous != core.StatusNew {
+		t.Errorf("Previous = %q, want %q", res.Previous, core.StatusNew)
+	}
+	if res.Backward {
+		t.Errorf("new → completed should not be backward")
+	}
+	if !res.Entry.UpdatedAt.After(created.UpdatedAt) {
+		t.Errorf("UpdatedAt not bumped: %v not after %v", res.Entry.UpdatedAt, created.UpdatedAt)
+	}
+
+	// Backward: completed → in-progress, and the empty reason clears.
+	res, err = SetStatus(context.Background(), created.ID, core.StatusInProgress, "")
+	if err != nil {
+		t.Fatalf("SetStatus in-progress: %v", err)
+	}
+	if !res.Backward {
+		t.Errorf("completed → in-progress should be backward")
+	}
+	if res.Entry.StatusReason != "" {
+		t.Errorf("StatusReason = %q, want cleared", res.Entry.StatusReason)
+	}
+}
+
+// TestSetStatus_AbandonRequiresReason confirms abandoning without a
+// reason is rejected and nothing is written.
+func TestSetStatus_AbandonRequiresReason(t *testing.T) {
+	setupInitializedHome(t)
+
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title:    "abandon target",
+		NoSelect: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+
+	if _, err := SetStatus(context.Background(), created.ID, core.StatusAbandoned, "   "); err == nil {
+		t.Fatalf("SetStatus abandoned with blank reason: want error, got nil")
+	}
+
+	// The status must be untouched after the rejected call.
+	got, err := ShowWork(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("ShowWork: %v", err)
+	}
+	if got.Status != core.StatusNew {
+		t.Errorf("Status = %q, want %q (unchanged)", got.Status, core.StatusNew)
+	}
+}
+
+// TestSetStatus_RejectsInvalidStatus guards the enum check.
+func TestSetStatus_RejectsInvalidStatus(t *testing.T) {
+	setupInitializedHome(t)
+
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title:    "invalid status target",
+		NoSelect: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+	if _, err := SetStatus(context.Background(), created.ID, core.WorkEntryStatus("done"), ""); err == nil {
+		t.Fatalf("SetStatus with invalid status: want error, got nil")
+	}
+}
+
+// TestCloseWork_CompletesAndAbandons covers the `orbit work close`
+// shortcut in both modes, including the empty-id fallback to the
+// selected entry.
+func TestCloseWork_CompletesAndAbandons(t *testing.T) {
+	setupInitializedHome(t)
+
+	// Default NoSelect: false → this auto-selects, so the empty id
+	// below resolves to it.
+	created, err := CreateWork(context.Background(), CreateWorkParams{
+		Title: "close target",
+	})
+	if err != nil {
+		t.Fatalf("CreateWork: %v", err)
+	}
+
+	res, err := CloseWork(context.Background(), "", false, "")
+	if err != nil {
+		t.Fatalf("CloseWork complete: %v", err)
+	}
+	if res.Entry.ID != created.ID {
+		t.Errorf("resolved id = %q, want %q (selected entry)", res.Entry.ID, created.ID)
+	}
+	if res.Entry.Status != core.StatusCompleted {
+		t.Errorf("Status = %q, want %q", res.Entry.Status, core.StatusCompleted)
+	}
+
+	// --abandon without a reason must fail.
+	if _, err := CloseWork(context.Background(), created.ID, true, ""); err == nil {
+		t.Fatalf("CloseWork abandon without reason: want error, got nil")
+	}
+
+	res, err = CloseWork(context.Background(), created.ID, true, "superseded")
+	if err != nil {
+		t.Fatalf("CloseWork abandon: %v", err)
+	}
+	if res.Entry.Status != core.StatusAbandoned {
+		t.Errorf("Status = %q, want %q", res.Entry.Status, core.StatusAbandoned)
+	}
+	if res.Entry.StatusReason != "superseded" {
+		t.Errorf("StatusReason = %q, want %q", res.Entry.StatusReason, "superseded")
 	}
 }
