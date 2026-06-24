@@ -92,10 +92,6 @@ type WorkEntry struct {
 	// [github.com/lydietoure/orbit/internal/db.GetWorkEntry]); left
 	// nil by [NewWorkEntry].
 	Artifacts []Artifact
-	// Notes is the list of dated note references linked to this entry,
-	// newest date first. Populated by the storage layer on read; left
-	// nil by [NewWorkEntry].
-	Notes []Note
 }
 
 // NewWorkEntryParams holds the user-supplied input for a new work

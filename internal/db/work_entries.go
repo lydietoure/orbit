@@ -155,9 +155,9 @@ func isUniqueTitleViolation(err error) bool {
 
 // GetWorkEntry returns the work entry with the given ID. If no such
 // entry exists, the returned error wraps [ErrWorkEntryNotFound].
-// The returned entry's Tags, Artifacts, and Notes slices are
-// populated via follow-up queries (tags alphabetical, artifacts
-// oldest-first, notes newest-date-first; each nil when empty).
+// The returned entry's Tags and Artifacts slices are populated via
+// follow-up queries (tags alphabetical, artifacts oldest-first; each
+// nil when empty).
 func GetWorkEntry(ctx context.Context, db *sql.DB, id string) (core.WorkEntry, error) {
 	stmt := `SELECT ` + workEntryColumns + ` FROM work_entries WHERE id = ?`
 	row := db.QueryRowContext(ctx, stmt, id)
@@ -178,11 +178,6 @@ func GetWorkEntry(ctx context.Context, db *sql.DB, id string) (core.WorkEntry, e
 		return core.WorkEntry{}, err
 	}
 	e.Artifacts = artifacts
-	notes, err := ListNotesForWorkEntry(ctx, db, e.ID)
-	if err != nil {
-		return core.WorkEntry{}, err
-	}
-	e.Notes = notes
 	return e, nil
 }
 
