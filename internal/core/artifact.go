@@ -28,6 +28,9 @@ const (
 	ArtifactFile ArtifactType = "file"
 	// ArtifactURL is any other URL (docs, wiki, ...).
 	ArtifactURL ArtifactType = "url"
+	// ArtifactNote is the local path to a markdown note file the user
+	// maintains elsewhere (an Obsidian vault, a project folder, ...).
+	ArtifactNote ArtifactType = "note"
 	// ArtifactCustom is a user-defined freeform reference.
 	ArtifactCustom ArtifactType = "custom"
 )
@@ -47,19 +50,19 @@ type Artifact struct {
 func (t ArtifactType) Valid() bool {
 	switch t {
 	case ArtifactBranch, ArtifactPR, ArtifactWorkItem, ArtifactRepo,
-		ArtifactDir, ArtifactFile, ArtifactURL, ArtifactCustom:
+		ArtifactDir, ArtifactFile, ArtifactURL, ArtifactNote, ArtifactCustom:
 		return true
 	}
 	return false
 }
 
 // IsLocalPath reports whether t references a path on the local
-// filesystem (repo, dir, file). Local-path artifacts are stored as
-// absolute paths; the absolutization happens in the app layer since
+// filesystem (repo, dir, file, note). Local-path artifacts are stored
+// as absolute paths; the absolutization happens in the app layer since
 // it depends on the working directory.
 func (t ArtifactType) IsLocalPath() bool {
 	switch t {
-	case ArtifactRepo, ArtifactDir, ArtifactFile:
+	case ArtifactRepo, ArtifactDir, ArtifactFile, ArtifactNote:
 		return true
 	}
 	return false
@@ -92,8 +95,8 @@ func ParseArtifactType(raw string) (ArtifactType, error) {
 //   - URL types (pr, workitem, url) must parse as an absolute URL with
 //     a scheme and host — a cheap guard against obvious typos. Other
 //     schemes than http(s) are allowed (e.g. ssh:// remotes).
-//   - Local-path types (repo, dir, file) are returned trimmed but NOT
-//     absolutized — that is the app layer's job (it needs the working
+//   - Local-path types (repo, dir, file, note) are returned trimmed but
+//     NOT absolutized — that is the app layer's job (it needs the working
 //     directory). The path is otherwise unconstrained; Orbit only
 //     references files, so a missing path is a warning, not an error.
 //   - branch and custom are accepted as-is once non-empty.

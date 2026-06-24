@@ -48,9 +48,8 @@ Existing tools (ADO boards, GitHub Projects, Notion, Obsidian) each cover a slic
 | Concept | Description |
 |---|---|
 | **WorkEntry** | The central unit. Represents a piece of work (feature, bug, spike, learning). Has a title, **description**, status (with reason), optional **pad** path, tags, timestamps. The description is stored in the DB so the work entry remains self-explanatory even if all linked references become stale. |
-| **Artifact** | Something linked to a WorkEntry. Types: `branch`, `pr`, `workitem`, `repo`, `dir`, `file`, `url`, `custom`. |
-| **Note** | A dated reference to a markdown file the user manages. Orbit does not own note storage — the user decides where notes live (Obsidian vault, a project folder, anywhere). Orbit tracks the path and the date. Notes may contain rich markdown (code blocks, images, links). |
-| **LogEntry** | A timestamped one-liner attached to a WorkEntry, stored directly in the DB. Captures quick observations in the moment (from the terminal) without switching to a notes app. Lightweight complement to Notes — useful for timeline reconstruction, MCP search, and memory. |
+| **Artifact** | Something linked to a WorkEntry. Types: `branch`, `pr`, `workitem`, `repo`, `dir`, `file`, `url`, `note`, `custom`. A `note` artifact references a markdown file the user manages — Orbit does not own note storage (the user decides where notes live: an Obsidian vault, a project folder, anywhere); it only tracks the path. |
+| **LogEntry** | A timestamped one-liner attached to a WorkEntry, stored directly in the DB. Captures quick observations in the moment (from the terminal) without switching to a notes app. Lightweight complement to note artifacts — useful for timeline reconstruction, MCP search, and memory. |
 | **WorkDay** | A date on which you worked on a WorkEntry. Acts as an index into your daily notes — orbit doesn't copy content from your journal, it just knows *which days* you worked on something, so you can go back to those daily notes yourself. |
 | **Pad** | An optional folder path where you do experimental work for this entry (test files, scratch code, prototypes). Short for "scratchpad". Unlike artifacts which are references, the pad is where you actively work. One per WorkEntry. |
 | **Tag** | A free-form label for cross-cutting concerns (e.g., `caching`, `perf`, `debugging`). |
@@ -368,7 +367,7 @@ orbit link <id> --dir <path>                # Link a local directory (non-repo)
 orbit link <id> --file <path>               # Link a local file
 orbit link <id> --url <url>                 # Link any other URL
 orbit link <id> --custom <value>            # Link freeform reference
-orbit link <id> --note <path> [--date ...]  # Link an existing note (md file or folder)
+orbit link <id> --note <path>               # Link an existing markdown note file
 orbit link --branch <name>                  # Link to selected work entry (id optional)
 
 orbit summary --since 2w                    # Generate a summary of recent work

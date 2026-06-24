@@ -12,12 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `orbit link [id]` — attach external references to a work entry,
   turning it into a hub for everything you touched. Artifacts are typed
   references (`--branch`, `--pr`, `--workitem`, `--repo`, `--dir`,
-  `--file`, `--url`, `--custom`); `--note <path> [--date YYYY-MM-DD]`
-  links a dated markdown note. `--remove` detaches a reference; with no
-  type flag the linked references are listed. Local paths are stored
-  absolute and a non-existent path is a warning, not an error. The id
-  is optional and falls back to the selected entry. Deleting a work
-  entry removes its artifacts and notes.
+  `--file`, `--url`, `--note`, `--custom`); `--note <path>` links a
+  markdown note file. `--remove` detaches a reference; with no type flag
+  the linked references are listed. Local paths are stored absolute and
+  a non-existent path is a warning, not an error. The id is optional and
+  falls back to the selected entry. Deleting a work entry removes its
+  artifacts.
 - `orbit work tag list [id]` — list the plain tags on a work entry
   (defaults to the selected entry). Reserved `project:*` / `owner:*`
   tags are shown by `work project list` / `work owner list` instead.
