@@ -24,8 +24,8 @@ whatever you get by running every diff in order on an empty DB.
 ```
 internal/db/
   migrations/
-    0001_init.sql              # today's schema.sql, verbatim
-                               # (CREATE TABLE work_entries, tags, state, ...)
+    0000_v0.1.0.sql            # v0.1.0 schema as released, verbatim (validated in ci)
+    0001_add_artifacts.sql     # ALTER TABLE ...
     0002_add_priority.sql      # ALTER TABLE work_entries ADD COLUMN priority ...
     0003_unique_title.sql      # 12-step rewrite to add UNIQUE on title
     NNNN_short_description.sql
