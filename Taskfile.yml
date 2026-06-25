@@ -40,7 +40,9 @@ tasks:
 
   test:
     desc: "Run all tests"
-    cmd: go test ./...
+    cmds:
+      - go run -tags ci ./cmd/genschema/
+      - go test ./...
 
   lint:
     desc: "Run linting checks"
