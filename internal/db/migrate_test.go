@@ -62,7 +62,7 @@ func TestGoldenSchema(t *testing.T) {
 	golden := filepath.Join("testdata", "schema.golden.sql")
 	want, err := os.ReadFile(golden)
 	if err != nil {
-		t.Fatalf("read golden file %s: %v\n\tregenerate with: go run ./internal/db/genschema.go", golden, err)
+		t.Fatalf("read golden file %s: %v\n\tregenerate with: go run -tags ci ./cmd/genschema/", golden, err)
 	}
 
 	db := openMemDB(t)
@@ -88,7 +88,7 @@ func TestGoldenSchema(t *testing.T) {
 	got := strings.Join(rows, "\n") + "\n"
 
 	if got != string(want) {
-		t.Errorf("schema differs from %s\n\tregenerate with: go run ./internal/db/genschema.go\n\ngot:\n%s\nwant:\n%s",
+		t.Errorf("schema differs from %s\n\tregenerate with: go run -tags ci ./cmd/genschema/\n\ngot:\n%s\nwant:\n%s",
 			golden, got, string(want))
 	}
 }
