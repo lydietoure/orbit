@@ -84,6 +84,21 @@ tasks:
             -o dist/orbit-{{.VERSION}}-{{splitList "/" .ITEM | first}}-{{splitList "/" .ITEM | last}}{{if eq (splitList "/" .ITEM | first) "windows"}}.exe{{end}} \
             ./cmd/orbit
 
+  genschema:
+    desc: "Run the genschema tool"
+    cmd: go run -tags ci ./cmd/genschema/ {{.CLI_ARGS}}
+
+  validate0000:
+    desc: "Validate that 0000_v0.1.0.sql matches the canonical v0.1.0 schema"
+    cmd: |
+      bash -c '
+        RELEASED_RAW="$(mktemp)"
+        trap "rm -f \"$RELEASED_RAW\"" EXIT
+        echo "Fetching canonical v0.1.0 schema from git..."
+        git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
+        bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
+      '
+
   # Live run
   run:
     desc: |

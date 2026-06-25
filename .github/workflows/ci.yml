@@ -10,7 +10,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-tags: true
 
       - uses: actions/setup-go@v5
         with:
@@ -18,6 +20,15 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+      # Check that the original migration file 0000_v0.1.0.sql matches the canonical v0.1.0 schema.
+      - name: Validate 0000_v0.1.0.sql
+        run: |
+          echo "Fetching canonical v0.1.0 schema from git..."
+          RELEASED_RAW="$(mktemp)"
+          trap "rm -f '$RELEASED_RAW'" EXIT
+          git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
+          bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
 
       - name: Vet
         run: go vet ./...
@@ -44,7 +55,7 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v5
         with:
