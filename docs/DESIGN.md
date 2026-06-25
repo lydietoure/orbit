@@ -368,7 +368,7 @@ orbit link <id> --dir <path>                # Link a local directory (non-repo)
 orbit link <id> --file <path>               # Link a local file
 orbit link <id> --url <url>                 # Link any other URL
 orbit link <id> --custom <value>            # Link freeform reference
-orbit link <id> --note <path> [--date ...]  # Link an existing note (md file or folder)
+orbit link <id> --note <path>               # Link an existing note (md file)
 orbit link --branch <name>                  # Link to selected work entry (id optional)
 
 orbit summary --since 2w                    # Generate a summary of recent work

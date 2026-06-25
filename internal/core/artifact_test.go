@@ -1,9 +1,7 @@
 package core
 
 import (
-	"strings"
 	"testing"
-	"time"
 )
 
 func TestParseArtifactType(t *testing.T) {
@@ -15,6 +13,7 @@ func TestParseArtifactType(t *testing.T) {
 		"dir":        ArtifactDir,
 		"file":       ArtifactFile,
 		"url":        ArtifactURL,
+		"note":       ArtifactNote,
 		"custom":     ArtifactCustom,
 	}
 	for raw, want := range cases {
@@ -34,7 +33,7 @@ func TestParseArtifactType(t *testing.T) {
 }
 
 func TestArtifactTypeClassification(t *testing.T) {
-	for _, t2 := range []ArtifactType{ArtifactRepo, ArtifactDir, ArtifactFile} {
+	for _, t2 := range []ArtifactType{ArtifactRepo, ArtifactDir, ArtifactFile, ArtifactNote} {
 		if !t2.IsLocalPath() {
 			t.Errorf("%q.IsLocalPath() = false, want true", t2)
 		}
@@ -95,33 +94,5 @@ func TestNormalizeValue_LocalPathNotAbsolutized(t *testing.T) {
 	}
 	if got != "./relative/path" {
 		t.Errorf("NormalizeValue = %q, want it left relative", got)
-	}
-}
-
-func TestNormalizeNoteDate(t *testing.T) {
-	got, err := NormalizeNoteDate("2026-06-20")
-	if err != nil {
-		t.Fatalf("NormalizeNoteDate: %v", err)
-	}
-	if got != "2026-06-20" {
-		t.Errorf("NormalizeNoteDate = %q, want 2026-06-20", got)
-	}
-
-	// Empty defaults to today (UTC).
-	got, err = NormalizeNoteDate("")
-	if err != nil {
-		t.Fatalf("NormalizeNoteDate(empty): %v", err)
-	}
-	want := time.Now().UTC().Format(NoteDateLayout)
-	if got != want {
-		t.Errorf("NormalizeNoteDate(empty) = %q, want today %q", got, want)
-	}
-
-	for _, bad := range []string{"2026/06/20", "June 20", "2026-13-01", "20-06-2026"} {
-		if _, err := NormalizeNoteDate(bad); err == nil {
-			t.Errorf("NormalizeNoteDate(%q) = nil error, want error", bad)
-		} else if !strings.Contains(err.Error(), "YYYY-MM-DD") {
-			t.Errorf("NormalizeNoteDate(%q) error %q should mention the wanted format", bad, err)
-		}
 	}
 }

@@ -90,97 +90,10 @@ func TestRemoveArtifact(t *testing.T) {
 	}
 }
 
-func TestAddAndListNotes(t *testing.T) {
-	db := newTestDB(t)
-	ctx := context.Background()
-	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "noted"})
-	if err := InsertWorkEntry(ctx, db, entry); err != nil {
-		t.Fatalf("InsertWorkEntry: %v", err)
-	}
-
-	now := time.Now().UTC()
-	notes := []core.Note{
-		{WorkEntryID: entry.ID, Path: "/n/older.md", Date: "2026-06-01", CreatedAt: now},
-		{WorkEntryID: entry.ID, Path: "/n/newer.md", Date: "2026-06-20", CreatedAt: now},
-	}
-	for _, n := range notes {
-		if err := AddNote(ctx, db, n); err != nil {
-			t.Fatalf("AddNote %s: %v", n.Path, err)
-		}
-	}
-
-	got, err := ListNotesForWorkEntry(ctx, db, entry.ID)
-	if err != nil {
-		t.Fatalf("ListNotesForWorkEntry: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len = %d, want 2", len(got))
-	}
-	// Newest date first.
-	if got[0].Date != "2026-06-20" {
-		t.Errorf("first note date = %q, want 2026-06-20", got[0].Date)
-	}
-}
-
-func TestAddNote_SamePathDifferentDateAreDistinct(t *testing.T) {
-	db := newTestDB(t)
-	ctx := context.Background()
-	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "dates"})
-	if err := InsertWorkEntry(ctx, db, entry); err != nil {
-		t.Fatalf("InsertWorkEntry: %v", err)
-	}
-	now := time.Now().UTC()
-	// Same path, two dates → two notes. Re-adding the first is a no-op.
-	for _, n := range []core.Note{
-		{WorkEntryID: entry.ID, Path: "/n/a.md", Date: "2026-06-01", CreatedAt: now},
-		{WorkEntryID: entry.ID, Path: "/n/a.md", Date: "2026-06-01", CreatedAt: now},
-		{WorkEntryID: entry.ID, Path: "/n/a.md", Date: "2026-06-02", CreatedAt: now},
-	} {
-		if err := AddNote(ctx, db, n); err != nil {
-			t.Fatalf("AddNote: %v", err)
-		}
-	}
-	got, err := ListNotesForWorkEntry(ctx, db, entry.ID)
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(got) != 2 {
-		t.Errorf("len = %d, want 2", len(got))
-	}
-}
-
-func TestRemoveNote_RemovesAllDatesForPath(t *testing.T) {
-	db := newTestDB(t)
-	ctx := context.Background()
-	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "rmnote"})
-	if err := InsertWorkEntry(ctx, db, entry); err != nil {
-		t.Fatalf("InsertWorkEntry: %v", err)
-	}
-	now := time.Now().UTC()
-	for _, d := range []string{"2026-06-01", "2026-06-02"} {
-		if err := AddNote(ctx, db, core.Note{WorkEntryID: entry.ID, Path: "/n/a.md", Date: d, CreatedAt: now}); err != nil {
-			t.Fatalf("AddNote: %v", err)
-		}
-	}
-	if err := RemoveNote(ctx, db, entry.ID, "/n/a.md"); err != nil {
-		t.Fatalf("RemoveNote: %v", err)
-	}
-	got, err := ListNotesForWorkEntry(ctx, db, entry.ID)
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(got) != 0 {
-		t.Errorf("len = %d, want 0 (all dates for the path removed)", len(got))
-	}
-	if err := RemoveNote(ctx, db, entry.ID, "/n/a.md"); !errors.Is(err, ErrNoteNotOnEntry) {
-		t.Errorf("err = %v, want ErrNoteNotOnEntry", err)
-	}
-}
-
-// TestDeleteWorkEntry_CascadesArtifactsAndNotes is the acceptance test
-// from the issue: deleting a work entry must take its artifacts and
-// notes with it via the schema-level ON DELETE CASCADE.
-func TestDeleteWorkEntry_CascadesArtifactsAndNotes(t *testing.T) {
+// TestDeleteWorkEntry_CascadesArtifacts is the acceptance test
+// from the issue: deleting a work entry must take its artifacts
+// with it via the schema-level ON DELETE CASCADE.
+func TestDeleteWorkEntry_CascadesArtifacts(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 	entry := makeValidEntry(t, core.NewWorkEntryParams{Title: "doomed"})
@@ -191,23 +104,21 @@ func TestDeleteWorkEntry_CascadesArtifactsAndNotes(t *testing.T) {
 	if err := AddArtifact(ctx, db, core.Artifact{WorkEntryID: entry.ID, Type: core.ArtifactBranch, Value: "main", CreatedAt: now}); err != nil {
 		t.Fatalf("AddArtifact: %v", err)
 	}
-	if err := AddNote(ctx, db, core.Note{WorkEntryID: entry.ID, Path: "/n/a.md", Date: "2026-06-20", CreatedAt: now}); err != nil {
-		t.Fatalf("AddNote: %v", err)
+	if err := AddArtifact(ctx, db, core.Artifact{WorkEntryID: entry.ID, Type: core.ArtifactNote, Value: "/n/a.md", CreatedAt: now}); err != nil {
+		t.Fatalf("AddArtifact (note): %v", err)
 	}
 
 	if err := DeleteWorkEntry(ctx, db, entry.ID); err != nil {
 		t.Fatalf("DeleteWorkEntry: %v", err)
 	}
 
-	for _, tbl := range []string{"artifacts", "notes"} {
-		var count int
-		if err := db.QueryRow(
-			`SELECT COUNT(*) FROM `+tbl+` WHERE work_entry_id = ?`, entry.ID,
-		).Scan(&count); err != nil {
-			t.Fatalf("count %s: %v", tbl, err)
-		}
-		if count != 0 {
-			t.Errorf("%s rows after delete = %d, want 0 — cascade did not fire", tbl, count)
-		}
+	var count int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM artifacts WHERE work_entry_id = ?`, entry.ID,
+	).Scan(&count); err != nil {
+		t.Fatalf("count artifacts: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("artifacts rows after delete = %d, want 0 — cascade did not fire", count)
 	}
 }
