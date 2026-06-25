@@ -51,6 +51,8 @@ go build -tags ci -o "$GENSCHEMA" ./cmd/genschema/
 # Collect every migration file whose numeric prefix is <= TARGET_VERSION.
 MIGRATIONS_DIR="internal/db/migrations"
 SELECTED=()
+
+shopt -s nullglob
 for f in "$MIGRATIONS_DIR"/*.sql; do
     base="$(basename "$f")"
     prefix="${base%%_*}"
@@ -59,6 +61,11 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
         SELECTED+=("$base")
     fi
 done
+
+# Ensure numeric ordering even if filenames aren't zero-padded.
+if [[ ${#SELECTED[@]} -gt 0 ]]; then
+    mapfile -t SELECTED < <(printf '%s\n' "${SELECTED[@]}" | sort -t_ -k1,1n)
+fi
 
 if [[ ${#SELECTED[@]} -eq 0 ]]; then
     echo "error: no migration files with version <= $TARGET_VERSION found in $MIGRATIONS_DIR" >&2

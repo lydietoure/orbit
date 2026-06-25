@@ -66,7 +66,16 @@ func loadMigrationsFrom(fsys fs.FS, dir string) ([]migration, error) {
 		})
 	}
 	// Sort by parsed version number
-	slices.SortFunc(out, func(a, b migration) int { return a.version - b.version })
+	slices.SortFunc(out, func(a, b migration) int {
+		switch {
+		case a.version < b.version:
+			return -1
+		case a.version > b.version:
+			return 1
+		default:
+			return 0
+		}
+	})
 	return out, nil
 }
 
