@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # validate_0000_schema.sh
+# TODO: Consider using validate_schema.sh to avoid duplication
 #
 # Verifies that migrations/0000_v0.1.0.sql faithfully reproduces the schema
 # that was shipped in the v0.1.0 release.

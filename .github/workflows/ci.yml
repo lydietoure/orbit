@@ -34,10 +34,7 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: |
-          echo "Generating the schema..."
-          go run -tags ci ./cmd/genschema/
-          go test ./... -race -coverprofile=coverage.out
+        run: go test ./... -race -coverprofile=coverage.out
 
   # Cross-compile every release target so a build break on any
   # GOOS/GOARCH is caught at PR time rather than during a tag release.
