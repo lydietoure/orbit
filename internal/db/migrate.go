@@ -3,13 +3,14 @@ package db
 // Package-level migration machinery for orbit's SQLite database.
 //
 // The public surface is [DumpSchema], which genschema and tests use to produce
-// a normalised, comparable representation of whatever is in a DB. The migration
-// runtime ([Migrate], added in Phase 2) will use [loadMigrations] internally.
+// a normalised, comparable representation of whatever is in a DB.
 
 import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -25,12 +26,18 @@ type migration struct {
 }
 
 // loadMigrations reads every *.sql file from the embedded migrations directory,
-// parses each filename as NNNN_*.sql, and returns the migrations sorted by
+// parses each filename as N+_*.sql, and returns the migrations sorted by
 // version. It rejects malformed filenames and duplicate version numbers.
 func loadMigrations() ([]migration, error) {
-	entries, err := migrationsFS.ReadDir("migrations")
+	return loadMigrationsFrom(migrationsFS, "migrations")
+}
+
+// loadMigrationsFrom is the injectable core of loadMigrations. fsys must
+// contain SQL files directly under dir/ named N+_*.sql.
+func loadMigrationsFrom(fsys fs.FS, dir string) ([]migration, error) {
+	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
-		return nil, fmt.Errorf("read embedded migrations: %w", err)
+		return nil, fmt.Errorf("read migrations dir %q: %w", dir, err)
 	}
 
 	seen := make(map[int]string) // version → filename, for duplicate detection
@@ -48,7 +55,7 @@ func loadMigrations() ([]migration, error) {
 		}
 		seen[v] = e.Name()
 
-		content, err := migrationsFS.ReadFile("migrations/" + e.Name())
+		content, err := fs.ReadFile(fsys, dir+"/"+e.Name())
 		if err != nil {
 			return nil, fmt.Errorf("read migration %s: %w", e.Name(), err)
 		}
@@ -58,8 +65,8 @@ func loadMigrations() ([]migration, error) {
 			sql:      string(content),
 		})
 	}
-	// embed.FS.ReadDir returns entries sorted by name, so out is already
-	// in lexical (and therefore version) order.
+	// Sort by parsed version number
+	slices.SortFunc(out, func(a, b migration) int { return a.version - b.version })
 	return out, nil
 }
 
