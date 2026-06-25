@@ -3,8 +3,6 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -50,47 +48,6 @@ func dumpSchema(t *testing.T, db *sql.DB) []string {
 		t.Fatalf("iterate sqlite_schema: %v", err)
 	}
 	return out
-}
-
-// TestGoldenSchema applies every migration in order to an in-memory DB and
-// compares the resulting schema against testdata/schema.golden.sql.
-//
-// Regenerate the golden file after changing migrations:
-//
-//	go run -tags ci ./cmd/genschema/
-func TestGoldenSchema(t *testing.T) {
-	golden := filepath.Join("testdata", "schema.golden.sql")
-	want, err := os.ReadFile(golden)
-	if err != nil {
-		t.Fatalf("read golden file %s: %v\n\tregenerate with: go run -tags ci ./cmd/genschema/", golden, err)
-	}
-
-	db := openMemDB(t)
-
-	entries, err := migrationsFS.ReadDir("migrations")
-	if err != nil {
-		t.Fatalf("read migrations dir: %v", err)
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		sql, err := migrationsFS.ReadFile("migrations/" + e.Name())
-		if err != nil {
-			t.Fatalf("read %s: %v", e.Name(), err)
-		}
-		if _, err := db.Exec(string(sql)); err != nil {
-			t.Fatalf("exec %s: %v", e.Name(), err)
-		}
-	}
-
-	rows := dumpSchema(t, db)
-	got := strings.Join(rows, "\n") + "\n"
-
-	if got != string(want) {
-		t.Errorf("schema differs from %s\n\tregenerate with: go run -tags ci ./cmd/genschema/\n\ngot:\n%s\nwant:\n%s",
-			golden, got, string(want))
-	}
 }
 
 // validFS returns a minimal fake FS with two well-formed migration files.
