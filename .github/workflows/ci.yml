@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-tags: true
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
@@ -29,7 +29,6 @@ jobs:
           trap "rm -f '$RELEASED_RAW'" EXIT
           git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
           bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
-        
 
       - name: Vet
         run: go vet ./...
