@@ -56,7 +56,7 @@ func dumpSchema(t *testing.T, db *sql.DB) []string {
 //
 // Regenerate the golden file after changing migrations:
 //
-//	go run ./internal/db/genschema.go
+//	go run -tags ci ./cmd/genschema/
 func TestGoldenSchema(t *testing.T) {
 	golden := filepath.Join("testdata", "schema.golden.sql")
 	want, err := os.ReadFile(golden)

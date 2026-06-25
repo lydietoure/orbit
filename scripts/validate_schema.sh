@@ -5,14 +5,14 @@
 # as a reference SQL file.
 #
 # Usage:
-#   ./.local/scripts/validate_schema.sh VERSION REFERENCE_SQL
+#   ./scripts/validate_schema.sh VERSION REFERENCE_SQL
 #
 #   VERSION        migration version to apply up to, inclusive (e.g. 0001 or 1)
 #   REFERENCE_SQL  path to a SQL file expected to produce the same schema
 #
 # Examples:
-#   ./.local/scripts/validate_schema.sh 0001 ./internal/db/schema.sql
-#   ./.local/scripts/validate_schema.sh 0000 /tmp/schema_v010_released.sql
+#   ./scripts/validate_schema.sh 0001 ./internal/db/schema.sql
+#   ./scripts/validate_schema.sh 0000 /tmp/schema_v010_released.sql
 #
 # Exit code 0 → schemas match. Non-zero → mismatch or error (details on stderr).
 

@@ -2,8 +2,8 @@
 --
 -- See docs/DATA_MODEL.md for the conceptual model and docs/TECH_STACK.md
 -- for implementation details. This file is embedded into the binary via
--- //go:embed and applied on every DB open. Statements use
--- CREATE TABLE IF NOT EXISTS so re-applying is a no-op on existing DBs.
+-- //go:embed (see internal/db/migrate.go) and is applied by the migration
+-- tooling. Statements use CREATE TABLE IF NOT EXISTS so re-applying is a no-op.
 --
 -- Pragmas (foreign_keys, journal_mode) are set on the connection, not
 -- here, so they apply to every open.
