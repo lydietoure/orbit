@@ -1,4 +1,5 @@
 package db
+
 // Package-level migration machinery for orbit's SQLite database.
 //
 // The public surface is [DumpSchema], which genschema and tests use to produce

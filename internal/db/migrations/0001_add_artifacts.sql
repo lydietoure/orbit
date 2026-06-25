@@ -1,6 +1,6 @@
 -- Orbit database schema (M0)
 --
--- Adds the artifacts and notes tables (and their indexes) introduced
+-- Adds the artifacts tables (and their indexes) introduced
 -- after v0.1.0.
 
 
