@@ -10,9 +10,11 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed migrations/*.sql
@@ -120,4 +122,127 @@ func DumpSchema(db *sql.DB) ([]string, error) {
 		return nil, fmt.Errorf("iterate sqlite_schema: %w", err)
 	}
 	return out, nil
+}
+
+// --- schema_migrations bookkeeping ---
+
+func ensureSchemaMigrationsTable(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version    INTEGER PRIMARY KEY,
+			applied_at TEXT    NOT NULL
+		)`)
+	if err != nil {
+		return fmt.Errorf("ensure schema_migrations: %w", err)
+	}
+	return nil
+}
+
+func appliedVersions(db *sql.DB) (map[int]bool, error) {
+	rows, err := db.Query(`SELECT version FROM schema_migrations`)
+	if err != nil {
+		return nil, fmt.Errorf("query schema_migrations: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int]bool)
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			return nil, fmt.Errorf("scan schema_migrations: %w", err)
+		}
+		out[v] = true
+	}
+	return out, rows.Err()
+}
+
+func recordApplied(tx *sql.Tx, version int, at time.Time) error {
+	_, err := tx.Exec(
+		`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
+		version, at.UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("record migration %d: %w", version, err)
+	}
+	return nil
+}
+
+// --- Migrate ---
+
+// Migrate applies every pending migration in internal/db/migrations/ to db
+// in version order. It is idempotent: already-applied migrations are skipped.
+//
+// It returns [ErrSchemaDrift] when the database contains a migration version
+// higher than the highest one embedded in this binary, meaning the DB was
+// created by a newer orbit build. In that case the database is not touched.
+//
+// Migrate is intended to replace [Initialize] in Phase 2. For now it lives
+// alongside it and has no callers outside tests.
+func Migrate(db *sql.DB) error {
+	return migrateFrom(db, migrationsFS, "migrations")
+}
+
+// migrateFrom is the injectable core of Migrate, used by tests.
+func migrateFrom(db *sql.DB, fsys fs.FS, dir string) error {
+	if err := ensureSchemaMigrationsTable(db); err != nil {
+		return err
+	}
+
+	all, err := loadMigrationsFrom(fsys, dir)
+	if err != nil {
+		return err
+	}
+	if len(all) == 0 {
+		return nil
+	}
+
+	applied, err := appliedVersions(db)
+	if err != nil {
+		return err
+	}
+
+	// Drift check: DB carries a version we don't know about.
+	maxEmbedded := all[len(all)-1].version
+	for v := range applied {
+		if v > maxEmbedded {
+			return fmt.Errorf("%w: database has migration %d but binary only knows up to %d",
+				ErrSchemaDrift, v, maxEmbedded)
+		}
+	}
+
+	// Apply pending migrations.
+	var nApplied int
+	for _, m := range all {
+		if applied[m.version] {
+			continue
+		}
+		slog.Debug("applying migration", "version", m.version, "file", m.filename)
+		if err := applyOneMigration(db, m); err != nil {
+			return err
+		}
+		nApplied++
+	}
+	if nApplied > 0 {
+		slog.Info("migrations applied", "count", nApplied)
+	}
+	return nil
+}
+
+func applyOneMigration(db *sql.DB, m migration) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction for migration %s: %w", m.filename, err)
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	if _, err := tx.Exec(m.sql); err != nil {
+		return fmt.Errorf("exec migration %s: %w", m.filename, err)
+	}
+	if err := recordApplied(tx, m.version, time.Now()); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit migration %s: %w", m.filename, err)
+	}
+	return nil
 }

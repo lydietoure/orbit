@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -152,5 +153,95 @@ func TestLoadMigrationsFrom_EmbeddedFS(t *testing.T) {
 	}
 	if ms[0].sql == "" {
 		t.Error("first migration has empty SQL")
+	}
+}
+
+// --- Migrate tests ---
+
+func TestMigrate_FreshDB(t *testing.T) {
+	db := openMemDB(t)
+	if err := migrateFrom(db, validFS(), "migrations"); err != nil {
+		t.Fatalf("migrateFrom: %v", err)
+	}
+
+	// Both migrations must be recorded.
+	applied, err := appliedVersions(db)
+	if err != nil {
+		t.Fatalf("appliedVersions: %v", err)
+	}
+	if !applied[0] || !applied[1] {
+		t.Errorf("expected versions 0 and 1 applied, got %v", applied)
+	}
+
+	// The schema produced by the fake FS should have the table and column.
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info('a')`).Scan(&count); err != nil {
+		t.Fatalf("pragma_table_info: %v", err)
+	}
+	if count != 2 { // id + name
+		t.Errorf("expected 2 columns on table a, got %d", count)
+	}
+}
+
+func TestMigrate_Idempotent(t *testing.T) {
+	db := openMemDB(t)
+	if err := migrateFrom(db, validFS(), "migrations"); err != nil {
+		t.Fatalf("first migrateFrom: %v", err)
+	}
+	if err := migrateFrom(db, validFS(), "migrations"); err != nil {
+		t.Fatalf("second migrateFrom: %v", err)
+	}
+	// Exactly 2 rows — no duplicates.
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&n); err != nil {
+		t.Fatalf("count schema_migrations: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("expected 2 rows in schema_migrations after two runs, got %d", n)
+	}
+}
+
+func TestMigrate_DBNewerThanBinary(t *testing.T) {
+	db := openMemDB(t)
+	// Bootstrap the table and stamp a version the fake FS doesn't know about.
+	if err := ensureSchemaMigrationsTable(db); err != nil {
+		t.Fatalf("ensureSchemaMigrationsTable: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, applied_at) VALUES (9999, '2099-01-01T00:00:00Z')`); err != nil {
+		t.Fatalf("insert sentinel: %v", err)
+	}
+
+	err := migrateFrom(db, validFS(), "migrations")
+	if err == nil {
+		t.Fatal("expected ErrSchemaDrift, got nil")
+	}
+	if !errors.Is(err, ErrSchemaDrift) {
+		t.Errorf("expected ErrSchemaDrift, got %v", err)
+	}
+}
+
+func TestMigrate_BadMigrationRollsBack(t *testing.T) {
+	fsys := fstest.MapFS{
+		"migrations/0000_init.sql": {Data: []byte("CREATE TABLE a (id INTEGER PRIMARY KEY);")},
+		"migrations/0001_bad.sql":  {Data: []byte("THIS IS NOT VALID SQL !!!;")},
+	}
+	db := openMemDB(t)
+	err := migrateFrom(db, fsys, "migrations")
+	if err == nil {
+		t.Fatal("expected error from bad SQL, got nil")
+	}
+
+	// Version 0 was committed before the bad migration ran; version 1 must not be recorded.
+	applied, _ := appliedVersions(db)
+	if applied[1] {
+		t.Error("version 1 should not be recorded after a failed migration")
+	}
+	// Table `a` must still exist (migration 0 committed successfully).
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_schema WHERE name = 'a'`).Scan(&n); err != nil {
+		t.Fatalf("query sqlite_schema: %v", err)
+	}
+	if n != 1 {
+		t.Error("table 'a' from migration 0 should still exist after migration 1 failed")
 	}
 }
