@@ -65,27 +65,6 @@ CREATE TABLE IF NOT EXISTS artifacts (
 
 CREATE INDEX IF NOT EXISTS idx_artifacts_work_entry_id ON artifacts(work_entry_id);
 
--- Notes: dated references to markdown files the user maintains
--- elsewhere (an Obsidian vault, a project folder, ...). Orbit stores
--- the absolute path and a logical date; it never creates or owns the
--- file. `date` is the logical YYYY-MM-DD the note belongs to and feeds
--- work-day tracking later.
---
--- UNIQUE(work_entry_id, path, date) keeps re-linking the same note on
--- the same date idempotent while still allowing the same file to be
--- referenced on different dates. ON DELETE CASCADE ties a note to its
--- parent entry.
-CREATE TABLE IF NOT EXISTS notes (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    work_entry_id TEXT NOT NULL REFERENCES work_entries(id) ON DELETE CASCADE,
-    path          TEXT NOT NULL,
-    date          TEXT NOT NULL,
-    created_at    TEXT NOT NULL,
-    UNIQUE (work_entry_id, path, date)
-);
-
-CREATE INDEX IF NOT EXISTS idx_notes_work_entry_id ON notes(work_entry_id);
-
 -- Application state: a singleton row with id=1. Tracks the currently
 -- selected work entry (auto-cleared if it is deleted), the timestamp
 -- of the last lazy health check, and the user's "dock" preferences

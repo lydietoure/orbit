@@ -15,8 +15,7 @@ Orbit persists its data in a local relational database. The data model consists 
 |--------|-------------|
 | **WorkEntry** | The central entity representing a piece of work |
 | **Tag** | Free-form labels (including `project:*` convention for projects) |
-| **Artifact** | Linked references to branches, repos, files, or URLs |
-| **Note** | Dated references to user-managed markdown files |
+| **Artifact** | Linked references to branches, repos, files, notes, or URLs |
 | **LogEntry** | Timestamped one-liner observations |
 | **WorkDay** | A date on which work occurred (auto or manual) |
 | **AppState** | Application state (selected entry, health check timestamp) |
@@ -29,9 +28,9 @@ Orbit persists its data in a local relational database. The data model consists 
 
 2. **Timestamps:** All timestamps use ISO8601 format (`2026-02-10T14:32:00Z`) for unambiguous sorting and display.
 
-3. **Dates:** Logical dates (for notes, work days) use `YYYY-MM-DD` format.
+3. **Dates:** Logical dates (for work days) use `YYYY-MM-DD` format.
 
-4. **Cascade deletes:** Deleting a WorkEntry removes all associated records (artifacts, notes, logs, work days, tag links).
+4. **Cascade deletes:** Deleting a WorkEntry removes all associated records (artifacts, logs, work days, tag links).
 
 5. **Paths are references:** File/folder paths are stored as absolute strings. Orbit tracks them but does not own or manage the underlying files.
 
@@ -44,7 +43,6 @@ Orbit persists its data in a local relational database. The data model consists 
 ```mermaid
 erDiagram
     WorkEntry ||--o{ Artifact : has
-    WorkEntry ||--o{ Note : has
     WorkEntry ||--o{ LogEntry : has
     WorkEntry ||--o{ WorkDay : has
     WorkEntry }o--o{ Tag : tagged_with
@@ -70,15 +68,7 @@ erDiagram
         id id PK
         string work_entry_id FK
         ArtifactType type
-        string value "path, URL, or branch name"
-        timestamp created_at
-    }
-
-    Note {
-        id id PK
-        string work_entry_id FK
-        string path "absolute path to .md file"
-        date date "logical date of the note"
+        string value "path, URL, branch name, or note path"
         timestamp created_at
     }
 
@@ -121,7 +111,6 @@ classDiagram
         +Timestamp updatedAt
         +List~Tag~ tags
         +List~Artifact~ artifacts
-        +List~Note~ notes
         +List~LogEntry~ logEntries
         +List~WorkDay~ workDays
     }
@@ -135,13 +124,6 @@ classDiagram
         +Id id
         +ArtifactType type
         +String value
-        +Timestamp createdAt
-    }
-
-    class Note {
-        +Id id
-        +String path
-        +Date date
         +Timestamp createdAt
     }
 
@@ -180,6 +162,7 @@ classDiagram
         DIR
         FILE
         URL
+        NOTE
         CUSTOM
     }
 
@@ -190,7 +173,6 @@ classDiagram
     }
 
     WorkEntry "1" --> "*" Artifact
-    WorkEntry "1" --> "*" Note
     WorkEntry "1" --> "*" LogEntry
     WorkEntry "1" --> "*" WorkDay
     WorkEntry "*" --> "*" Tag
@@ -272,21 +254,14 @@ A reference to something linked to a work entry.
 - `DIR` — Path to a local directory (non-repo: docs folders, design assets, etc.)
 - `FILE` — Path to a local file (e.g., `.code-workspace`, a single doc)
 - `URL` — Any other URL (documentation, wiki, etc.)
+- `NOTE` — Path to a markdown file the user maintains elsewhere (Obsidian vault, project folder, etc.)
 - `CUSTOM` — User-defined freeform reference
 
-### Note
-
-A dated reference to a markdown file managed by the user.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| id | id | yes | Opaque identifier |
-| work_entry_id | string | yes | Parent work entry |
-| path | string | yes | Absolute path to the markdown file |
-| date | date | yes | Logical date of the note (e.g., when written) |
-| created_at | timestamp | yes | When linked in orbit |
-
-**Note:** Orbit does not own or create these files — it only tracks references to files the user manages elsewhere (Obsidian vault, project folder, etc.).
+A `NOTE` is just a local-path artifact whose value points at a markdown
+file. Orbit only references the file — it never creates or owns it, so a
+missing path is a warning, not an error. Notes carry no date of their own;
+if work-day tracking is added later it will be introduced separately rather
+than as a property of the note.
 
 ### LogEntry
 
@@ -364,7 +339,7 @@ m2nb3   (tomorrow)
 ```
 
 Random bits are sourced from `math/rand/v2` (non-cryptographic; fine
-for personal IDs). Other entities (Tag, Artifact, Note, LogEntry,
+for personal IDs). Other entities (Tag, Artifact, LogEntry,
 WorkDay) use opaque auto-incrementing integer IDs not exposed to users.
 
 ---

@@ -197,12 +197,6 @@ func printWorkEntry(w io.Writer, e core.WorkEntry) {
 		fmt.Fprintln(w, "Artifacts:")
 		writeArtifactLines(w, e.Artifacts)
 	}
-	if len(e.Notes) == 0 {
-		fmt.Fprintf(w, "Notes:        %s\n", orNone(""))
-	} else {
-		fmt.Fprintln(w, "Notes:")
-		writeNoteLines(w, e.Notes)
-	}
 	fmt.Fprintf(w, "Created:      %s\n", e.CreatedAt.UTC().Format(timeFmt))
 	fmt.Fprintf(w, "Updated:      %s\n", e.UpdatedAt.UTC().Format(timeFmt))
 }

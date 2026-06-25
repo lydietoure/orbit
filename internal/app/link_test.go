@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/lydietoure/orbit/internal/core"
 	"github.com/lydietoure/orbit/internal/db"
@@ -41,6 +40,7 @@ func TestLinkArtifact_AddListRemove_EveryType(t *testing.T) {
 		{core.ArtifactDir, t.TempDir()},
 		{core.ArtifactFile, filepath.Join(t.TempDir(), "f.txt")},
 		{core.ArtifactURL, "https://docs/page"},
+		{core.ArtifactNote, filepath.Join(t.TempDir(), "note.md")},
 		{core.ArtifactCustom, "anything goes"},
 	}
 
@@ -55,7 +55,7 @@ func TestLinkArtifact_AddListRemove_EveryType(t *testing.T) {
 		}
 	}
 
-	_, artifacts, _, err := ListLinks(ctx, id)
+	_, artifacts, err := ListLinks(ctx, id)
 	if err != nil {
 		t.Fatalf("ListLinks: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestLinkArtifact_AddListRemove_EveryType(t *testing.T) {
 			t.Errorf("UnlinkArtifact(%s): %v", c.typ, err)
 		}
 	}
-	_, artifacts, _, err = ListLinks(ctx, id)
+	_, artifacts, err = ListLinks(ctx, id)
 	if err != nil {
 		t.Fatalf("ListLinks after remove: %v", err)
 	}
@@ -135,43 +135,34 @@ func TestLinkArtifact_InvalidURLRejected(t *testing.T) {
 	}
 }
 
-func TestLinkNote_RecordsDate(t *testing.T) {
+// TestLinkArtifact_NoteStoredAbsolute confirms a note is just a
+// local-path artifact: its path is absolutized and it lists back like
+// any other artifact, with no date semantics.
+func TestLinkArtifact_NoteStoredAbsolute(t *testing.T) {
 	setupInitializedHome(t)
 	ctx := context.Background()
-	id := seedSelectedEntry(t, "note date")
+	id := seedSelectedEntry(t, "note artifact")
 
-	_, path, date, _, err := LinkNote(ctx, id, "notes/day.md", "2026-06-20")
+	cwd := t.TempDir()
+	t.Chdir(cwd)
+
+	_, path, _, err := LinkArtifact(ctx, id, core.ArtifactNote, "notes/day.md")
 	if err != nil {
-		t.Fatalf("LinkNote: %v", err)
-	}
-	if date != "2026-06-20" {
-		t.Errorf("date = %q, want 2026-06-20", date)
+		t.Fatalf("LinkArtifact(note): %v", err)
 	}
 	if !filepath.IsAbs(path) {
 		t.Errorf("note path %q is not absolute", path)
 	}
 
-	_, _, notes, err := ListLinks(ctx, id)
+	_, artifacts, err := ListLinks(ctx, id)
 	if err != nil {
 		t.Fatalf("ListLinks: %v", err)
 	}
-	if len(notes) != 1 || notes[0].Date != "2026-06-20" {
-		t.Fatalf("notes = %+v, want one dated 2026-06-20", notes)
+	if len(artifacts) != 1 || artifacts[0].Type != core.ArtifactNote {
+		t.Fatalf("artifacts = %+v, want one note artifact", artifacts)
 	}
-}
-
-func TestLinkNote_DefaultsDateToToday(t *testing.T) {
-	setupInitializedHome(t)
-	ctx := context.Background()
-	id := seedSelectedEntry(t, "note today")
-
-	_, _, date, _, err := LinkNote(ctx, id, "notes/x.md", "")
-	if err != nil {
-		t.Fatalf("LinkNote: %v", err)
-	}
-	want := time.Now().UTC().Format(core.NoteDateLayout)
-	if date != want {
-		t.Errorf("date = %q, want today %q", date, want)
+	if artifacts[0].Value != filepath.Join(cwd, "notes/day.md") {
+		t.Errorf("note value = %q, want absolute path under cwd", artifacts[0].Value)
 	}
 }
 
@@ -182,7 +173,7 @@ func TestLink_NoTargetWhenNothingSelected(t *testing.T) {
 	if _, _, _, err := LinkArtifact(ctx, "", core.ArtifactBranch, "x"); !errors.Is(err, ErrNoTargetWorkEntry) {
 		t.Errorf("LinkArtifact err = %v, want ErrNoTargetWorkEntry", err)
 	}
-	if _, _, _, err := ListLinks(ctx, ""); !errors.Is(err, ErrNoTargetWorkEntry) {
+	if _, _, err := ListLinks(ctx, ""); !errors.Is(err, ErrNoTargetWorkEntry) {
 		t.Errorf("ListLinks err = %v, want ErrNoTargetWorkEntry", err)
 	}
 }
