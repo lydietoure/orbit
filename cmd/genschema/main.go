@@ -6,7 +6,6 @@
 //
 // Run from the repository root:
 //
-//	go run -tags ci ./cmd/genschema/
 //	go run -tags ci ./cmd/genschema/ -out /tmp/current.sql
 //	go run -tags ci ./cmd/genschema/ -migrations "0000_v0.1.0.sql" -out /tmp/v010.sql
 //	go run -tags ci ./cmd/genschema/ -sql /tmp/released.sql -out /tmp/released_norm.sql

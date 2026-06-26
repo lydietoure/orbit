@@ -58,9 +58,6 @@ var ErrNotInitialized = errors.New("orbit not initialized; run 'orbit init' firs
 // `orbit init` does NOT go through this helper; it has its own
 // create-or-open path in cli/lifecycle.go because its job is to
 // create the DB in the first place.
-//
-// open calls [db.Migrate] rather than [db.Initialize], so it also
-// applies any pending schema migrations on every invocation.
 func open() (*sql.DB, func(), error) {
 	path, err := config.DatabasePath()
 	if err != nil {

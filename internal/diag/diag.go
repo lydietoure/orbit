@@ -5,10 +5,6 @@
 // package centralizes handler configuration so call sites stay
 // handler-agnostic — swapping in a different slog.Handler (e.g. a JSON
 // handler in CI) is a one-line change here.
-//
-// Today the package only contains the logger setup. Error helpers
-// (sentinels, exit-code mapping, Report) will be added here when the
-// first command needs them.
 package diag
 
 import (

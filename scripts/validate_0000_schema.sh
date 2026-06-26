@@ -21,13 +21,6 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 RELEASED_RAW="$TMP/schema_v010_released_raw.sql"
-RELEASED_NORM="$TMP/schema_v010_released_norm.sql"
-FROM_MIGRATION="$TMP/schema_v010_from_migration.sql"
-GENSCHEMA="$TMP/genschema"
-
-# Build genschema once — modernc.org/sqlite is large; go run twice is slow.
-echo "Building genschema..."
-go build -tags ci -o "$GENSCHEMA" ./cmd/genschema/
 
 # Ground truth: the schema.sql that was actually in the v0.1.0 binary.
 echo "Fetching v0.1.0:internal/db/schema.sql from git..."
