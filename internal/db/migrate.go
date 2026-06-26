@@ -205,8 +205,9 @@ func migrateFrom(db *sql.DB, fsys fs.FS, dir string) error {
 	maxEmbedded := all[len(all)-1].version
 	for v := range applied {
 		if v > maxEmbedded {
-			return fmt.Errorf("%w: database has migration %d but binary only knows up to %d",
-				ErrSchemaDrift, v, maxEmbedded)
+			return fmt.Errorf(
+				"%w: your  data was created using a newer version of the app, and so it cannot read it — please update the app",
+				ErrSchemaDrift)
 		}
 	}
 
