@@ -56,7 +56,7 @@ func TestOpen_SucceedsWhenInitialized(t *testing.T) {
 	t.Setenv(config.HomeEnv, home)
 
 	// Mimic `orbit init`: create the DB file at the expected path so
-	// open() sees the init marker. db.Open + db.Initialize is exactly
+	// open() sees the init marker. db.Open + db.Migrate is exactly
 	// what initializeApplication does for the DB step.
 	dbPath, err := config.DatabasePath()
 	if err != nil {
@@ -66,8 +66,8 @@ func TestOpen_SucceedsWhenInitialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed Open: %v", err)
 	}
-	if err := db.Initialize(seed); err != nil {
-		t.Fatalf("seed Initialize: %v", err)
+	if err := db.Migrate(seed); err != nil {
+		t.Fatalf("seed Migrate: %v", err)
 	}
 	_ = seed.Close()
 

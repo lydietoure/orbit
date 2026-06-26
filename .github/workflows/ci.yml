@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 6 5 * *'  # every 5th of the Month at 06:00 UTC 
 
 jobs:
   check:
@@ -23,12 +25,7 @@ jobs:
 
       # Check that the original migration file 0000_v0.1.0.sql matches the canonical v0.1.0 schema.
       - name: Validate 0000_v0.1.0.sql
-        run: |
-          echo "Fetching canonical v0.1.0 schema from git..."
-          RELEASED_RAW="$(mktemp)"
-          trap "rm -f '$RELEASED_RAW'" EXIT
-          git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
-          bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
+        run: bash ./scripts/validate_0000_schema.sh
 
       - name: Vet
         run: go vet ./...
@@ -67,3 +64,75 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: go build -trimpath -o /dev/null ./cmd/orbit
+
+  # On every merge to main: generate a normalised schema snapshot from all
+  # current migration files and upload it as a GitHub Actions artifact.
+  # PRs use this snapshot to verify that no already-merged migration was edited.
+  publish-schema:
+    name: Publish schema snapshot
+    needs: check
+    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-tags: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build genschema
+        run: go build -tags ci -o /tmp/genschema ./cmd/genschema/
+
+      - name: Dump schema snapshot
+        run: |
+          MIGRATIONS_DIR=internal/db/migrations
+          mapfile -t FILES < <(ls "$MIGRATIONS_DIR"/*.sql | xargs -I{} basename {} | sort -t_ -k1,1n)
+          MIGRATIONS_ARG="$(IFS=,; echo "${FILES[*]}")"
+          MAX_VERSION=$(printf '%s\n' "${FILES[@]}" | sed 's/^\([0-9]*\)_.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
+          /tmp/genschema -migrations "$MIGRATIONS_ARG" -out schema_main.sql
+          echo "$MAX_VERSION" > schema_main.version
+          echo "Snapshot covers migrations 0..$MAX_VERSION"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: schema-main
+          path: |
+            schema_main.sql
+            schema_main.version
+          retention-days: 90
+          overwrite: true
+
+  # On every PR: download the latest schema snapshot from main and verify
+  # that applying the PR's migrations up to that version produces the same
+  # output. Fails if any already-merged migration was edited on this branch.
+  validate-schema-compat:
+    name: Validate schema compatibility
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-tags: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Download schema snapshot from main
+        id: download
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: schema-main
+          branch: main
+          workflow: ci.yml
+          path: /tmp/schema-main
+          if_no_artifact_found: warn
+        continue-on-error: true  # graceful on first PR before any main snapshot exists
+
+      - name: Validate against main snapshot
+        if: steps.download.outcome == 'success'
+        run: |
+          MAIN_VERSION=$(cat /tmp/schema-main/schema_main.version)
+          bash ./scripts/validate_schema.sh "$MAIN_VERSION" /tmp/schema-main/schema_main.sql

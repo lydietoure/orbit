@@ -90,14 +90,7 @@ tasks:
 
   validate0000:
     desc: "Validate that 0000_v0.1.0.sql matches the canonical v0.1.0 schema"
-    cmd: |
-      bash -c '
-        RELEASED_RAW="$(mktemp)"
-        trap "rm -f \"$RELEASED_RAW\"" EXIT
-        echo "Fetching canonical v0.1.0 schema from git..."
-        git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
-        bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
-      '
+    cmd: bash ./scripts/validate_0000_schema.sh
 
   # Live run
   run:

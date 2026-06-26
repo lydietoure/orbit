@@ -74,7 +74,7 @@ func open() (*sql.DB, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := db.Initialize(d); err != nil {
+	if err := db.Migrate(d); err != nil {
 		_ = d.Close()
 		return nil, nil, err
 	}

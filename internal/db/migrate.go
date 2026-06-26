@@ -6,13 +6,16 @@ package db
 // a normalised, comparable representation of whatever is in a DB.
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed migrations/*.sql
@@ -120,4 +123,166 @@ func DumpSchema(db *sql.DB) ([]string, error) {
 		return nil, fmt.Errorf("iterate sqlite_schema: %w", err)
 	}
 	return out, nil
+}
+
+// --- schema_migrations bookkeeping ---
+
+func ensureSchemaMigrationsTable(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version    INTEGER PRIMARY KEY,
+			applied_at TEXT    NOT NULL
+		)`)
+	if err != nil {
+		return fmt.Errorf("ensure schema_migrations: %w", err)
+	}
+	return nil
+}
+
+func appliedVersions(db *sql.DB) (map[int]bool, error) {
+	rows, err := db.Query(`SELECT version FROM schema_migrations`)
+	if err != nil {
+		return nil, fmt.Errorf("query schema_migrations: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int]bool)
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			return nil, fmt.Errorf("scan schema_migrations: %w", err)
+		}
+		out[v] = true
+	}
+	return out, rows.Err()
+}
+
+// --- Migrate ---
+
+// Migrate applies every pending migration in internal/db/migrations/ to db
+// in version order. It is idempotent: already-applied migrations are skipped.
+//
+// It returns [ErrSchemaDrift] when the database contains a migration version
+// higher than the highest one embedded in this binary, meaning the DB was
+// created by a newer orbit build. In that case no migrations are applied.
+//
+func Migrate(db *sql.DB) error {
+	return migrateFrom(db, migrationsFS, "migrations")
+}
+
+// migrateFrom is the injectable core of Migrate, used by tests.
+func migrateFrom(db *sql.DB, fsys fs.FS, dir string) error {
+	if err := ensureSchemaMigrationsTable(db); err != nil {
+		return err
+	}
+
+	all, err := loadMigrationsFrom(fsys, dir)
+	if err != nil {
+		return err
+	}
+	if len(all) == 0 {
+		return nil
+	}
+
+	applied, err := appliedVersions(db)
+	if err != nil {
+		return err
+	}
+
+	// Drift check: DB carries a version we don't know about.
+	maxEmbedded := all[len(all)-1].version
+	for v := range applied {
+		if v > maxEmbedded {
+			return fmt.Errorf(
+				"%w: database was created by a newer version of orbit; please update orbit to read it",
+				ErrSchemaDrift)
+
+		}
+	}
+
+	// Apply pending migrations.
+	var nApplied int
+	for _, m := range all {
+		if applied[m.version] {
+			continue
+		}
+		slog.Debug("applying migration", "version", m.version, "file", m.filename)
+		if err := applyOneMigration(db, m); err != nil {
+			return err
+		}
+		nApplied++
+	}
+	if nApplied > 0 {
+		slog.Info("migrations applied", "count", nApplied)
+	}
+	return nil
+}
+
+func applyOneMigration(db *sql.DB, m migration) (retErr error) {
+	// Use a single connection so that BEGIN IMMEDIATE and the subsequent
+	// DDL + bookkeeping are all issued on the same SQLite connection.
+	// BEGIN IMMEDIATE acquires the write lock up-front, preventing other
+	// writers from interleaving with DDL mid-migration.
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire connection for migration %s: %w", m.filename, err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		return fmt.Errorf("begin immediate for migration %s: %w", m.filename, err)
+	}
+	defer func() {
+		if retErr != nil {
+			_, _ = conn.ExecContext(ctx, "ROLLBACK")
+		}
+	}()
+
+	// Another migrator may have committed this version after we computed the
+	// initial applied set; re-check under the write lock to avoid spurious errors.
+	var already int
+	switch err := conn.QueryRowContext(ctx,
+		`SELECT 1 FROM schema_migrations WHERE version = ?`, m.version,
+	).Scan(&already); err {
+	case nil:
+		_, _ = conn.ExecContext(ctx, "ROLLBACK")
+		return nil
+	case sql.ErrNoRows:
+		// proceed
+	default:
+		return fmt.Errorf("check schema_migrations for version %d: %w", m.version, err)
+	}
+
+	if _, err := conn.ExecContext(ctx, m.sql); err != nil {
+		return fmt.Errorf("exec migration %s: %w", m.filename, err)
+	}
+	if _, err := conn.ExecContext(context.Background(),
+		`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
+		m.version, time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("record migration %d: %w", m.version, err)
+	}
+	if _, err := conn.ExecContext(context.Background(), "COMMIT"); err != nil {
+		return fmt.Errorf("commit migration %s: %w", m.filename, err)
+	}
+	return nil
+}
+
+// IsLegacyDB reports whether db was created before migrations were released —
+// i.e. it has a non-zero user_version but no schema_migrations table.
+// Such databases are adoptable by Migrate without data loss.
+func IsLegacyDB(db *sql.DB) (bool, error) {
+	var userVersion int32
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&userVersion); err != nil {
+		return false, err
+	}
+	if userVersion == 0 {
+		return false, nil
+	}
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'`).Scan(&n); err != nil {
+		return false, err
+	}
+	return n == 0, nil
 }

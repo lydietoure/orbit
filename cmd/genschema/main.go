@@ -6,7 +6,6 @@
 //
 // Run from the repository root:
 //
-//	go run -tags ci ./cmd/genschema/
 //	go run -tags ci ./cmd/genschema/ -out /tmp/current.sql
 //	go run -tags ci ./cmd/genschema/ -migrations "0000_v0.1.0.sql" -out /tmp/v010.sql
 //	go run -tags ci ./cmd/genschema/ -sql /tmp/released.sql -out /tmp/released_norm.sql
@@ -26,12 +25,14 @@ import (
 )
 
 func main() {
-	defaultOut := filepath.Join("internal", "db", "testdata", "schema.golden.sql")
-	out := flag.String("out", defaultOut, "path to write the generated schema file")
+	out := flag.String("out", "", "path to write the generated schema file (required)")
 	migrations := flag.String("migrations", "", "comma- or space-separated migration filenames (base names only); defaults to all files in the migrations dir")
 	sqlFile := flag.String("sql", "", "path to an arbitrary SQL file to apply directly (mutually exclusive with -migrations)")
 	flag.Parse()
 
+	if *out == "" {
+		fatalf("-out is required")
+	}
 	if *sqlFile != "" && *migrations != "" {
 		fatalf("-sql and -migrations are mutually exclusive")
 	}

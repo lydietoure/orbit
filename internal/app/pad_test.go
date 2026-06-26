@@ -31,8 +31,8 @@ func setupInitializedHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed Open: %v", err)
 	}
-	if err := db.Initialize(seed); err != nil {
-		t.Fatalf("seed Initialize: %v", err)
+	if err := db.Migrate(seed); err != nil {
+		t.Fatalf("seed Migrate: %v", err)
 	}
 	_ = seed.Close()
 }

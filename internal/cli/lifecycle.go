@@ -134,7 +134,7 @@ func initializeApplication(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	defer sqldb.Close()
-	if err := db.Initialize(sqldb); err != nil {
+	if err := db.Migrate(sqldb); err != nil {
 		return err
 	}
 	if dbExisted {

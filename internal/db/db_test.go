@@ -2,11 +2,9 @@ package db
 
 import (
 	"database/sql"
-	"errors"
 	"io"
 	"log/slog"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -32,8 +30,8 @@ func newTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
-	if err := Initialize(db); err != nil {
-		t.Fatalf("Initialize: %v", err)
+	if err := Migrate(db); err != nil {
+		t.Fatalf("Migrate: %v", err)
 	}
 	return db
 }
@@ -75,45 +73,18 @@ func TestOpen_RejectsPathWithQuestionMark(t *testing.T) {
 	}
 }
 
-// TestInitialize_CreatesTables verifies that applying the schema produces
-// exactly the M0 set of tables (ignoring SQLite's internal bookkeeping).
-func TestInitialize_CreatesTables(t *testing.T) {
+// TestMigrate_CreatesSchemaMigrationsTable verifies that Migrate creates the
+// schema_migrations bookkeeping table, which is Migrate's own responsibility
+// on top of whatever the SQL migration files themselves define.
+func TestMigrate_CreatesSchemaMigrationsTable(t *testing.T) {
 	db := newTestDB(t)
 
-	rows, err := db.Query(
-		`SELECT name FROM sqlite_master
-         WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-         ORDER BY name`,
-	)
-	if err != nil {
-		t.Fatalf("query sqlite_master: %v", err)
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'`).Scan(&n); err != nil {
+		t.Fatalf("query sqlite_schema: %v", err)
 	}
-	defer rows.Close()
-
-	var got []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		got = append(got, name)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("rows: %v", err)
-	}
-
-	want := []string{"artifacts", "state", "tags", "work_entries", "work_entry_tags"}
-	if !slices.Equal(got, want) {
-		t.Errorf("tables = %v, want %v", got, want)
-	}
-}
-
-// TestInitialize_IsIdempotent confirms running the schema twice does not
-// error — required because Initialize runs on every DB open, not just init.
-func TestInitialize_IsIdempotent(t *testing.T) {
-	db := newTestDB(t) // first apply
-	if err := Initialize(db); err != nil {
-		t.Fatalf("second Initialize: %v", err)
+	if n != 1 {
+		t.Errorf("schema_migrations table not found after Migrate")
 	}
 }
 
@@ -201,79 +172,4 @@ func TestCascadeDelete(t *testing.T) {
 	if count != 0 {
 		t.Errorf("join rows after delete = %d, want 0 — cascade did not fire", count)
 	}
-}
-
-// TestInitialize_StampsVersionOnFreshDB confirms a brand-new database
-// (user_version == 0) gets the current schema fingerprint stamped on
-// it by Initialize.
-func TestInitialize_StampsVersionOnFreshDB(t *testing.T) {
-	db := newTestDB(t)
-
-	var got int32
-	if err := db.QueryRow(`PRAGMA user_version`).Scan(&got); err != nil {
-		t.Fatalf("read user_version: %v", err)
-	}
-	if got != schemaVersion {
-		t.Errorf("user_version = %d, want %d", got, schemaVersion)
-	}
-}
-
-// TestInitialize_NoOpWhenVersionMatches verifies that re-running
-// Initialize on a DB already stamped with the current version is a
-// silent no-op (no error, no overwrite).
-func TestInitialize_NoOpWhenVersionMatches(t *testing.T) {
-	db := newTestDB(t) // already stamped by newTestDB
-
-	if err := Initialize(db); err != nil {
-		t.Fatalf("second Initialize: %v", err)
-	}
-
-	var got int32
-	if err := db.QueryRow(`PRAGMA user_version`).Scan(&got); err != nil {
-		t.Fatalf("read user_version: %v", err)
-	}
-	if got != schemaVersion {
-		t.Errorf("user_version drifted to %d after no-op Initialize, want %d", got, schemaVersion)
-	}
-}
-
-// TestInitialize_DetectsSchemaDrift is the regression guard for the
-// bug that motivated this whole feature: an existing DB whose schema
-// pre-dates the current binary must be refused with ErrSchemaDrift
-// instead of silently running against the stale schema.
-//
-// We simulate drift by stamping a deliberately-wrong user_version on
-// a freshly-initialized DB, then calling Initialize again.
-func TestInitialize_DetectsSchemaDrift(t *testing.T) {
-	db := newTestDB(t)
-
-	// Stamp a different version to simulate a DB created from an
-	// older (or just-different) schema source.
-	if _, err := db.Exec(`PRAGMA user_version = 42`); err != nil {
-		t.Fatalf("seed drifted version: %v", err)
-	}
-
-	err := Initialize(db)
-	if err == nil {
-		t.Fatal("expected ErrSchemaDrift, got nil")
-	}
-	if !errors.Is(err, ErrSchemaDrift) {
-		t.Errorf("err = %v, want ErrSchemaDrift", err)
-	}
-	// User-facing message should tell them how to recover.
-	msg := err.Error()
-	if !strings.Contains(msg, "orbit destroy") || !strings.Contains(msg, "orbit init") {
-		t.Errorf("error message %q should mention `orbit destroy` and `orbit init`", msg)
-	}
-}
-
-// contains is a tiny strings.Contains shim so the test stays self-
-// contained without adding an import just for one assertion.
-func contains(haystack, needle string) bool {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
 }
