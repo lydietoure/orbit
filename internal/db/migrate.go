@@ -246,3 +246,21 @@ func applyOneMigration(db *sql.DB, m migration) error {
 	}
 	return nil
 }
+
+// IsLegacyDB reports whether db was created before migrations were released —
+// i.e. it has a non-zero user_version but no schema_migrations table.
+// Such databases are adoptable by Migrate without data loss.
+func IsLegacyDB(db *sql.DB) (bool, error) {
+    var userVersion int32
+    if err := db.QueryRow(`PRAGMA user_version`).Scan(&userVersion); err != nil {
+        return false, err
+    }
+    if userVersion == 0 {
+        return false, nil
+    }
+    var n int
+    if err := db.QueryRow(`SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'`).Scan(&n); err != nil {
+        return false, err
+    }
+    return n == 0, nil
+}
