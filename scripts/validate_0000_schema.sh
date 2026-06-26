@@ -33,5 +33,4 @@ go build -tags ci -o "$GENSCHEMA" ./cmd/genschema/
 echo "Fetching v0.1.0:internal/db/schema.sql from git..."
 git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
 
-./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
-
+bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
