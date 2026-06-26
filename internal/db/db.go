@@ -16,7 +16,7 @@ import (
 // ErrSchemaDrift is returned by [Migrate] when the database contains a
 // migration version higher than the highest one embedded in this binary,
 // meaning the DB was created by a newer orbit build.
-var ErrSchemaDrift = errors.New("database schema is out of date")
+var ErrSchemaDrift = errors.New("database schema is newer than this binary supports")
 
 // Open opens (or creates) the orbit database at the given path.
 //

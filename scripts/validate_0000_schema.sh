@@ -35,19 +35,3 @@ git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
 
 ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
 
-# # Normalise the released schema by applying it to an in-memory DB via genschema.
-# echo "Normalising released schema..."
-# "$GENSCHEMA" -sql "$RELEASED_RAW" -out "$RELEASED_NORM"
-
-# # Normalise the migration by applying only 0000_v0.1.0.sql via genschema.
-# echo "Normalising 0000_v0.1.0.sql..."
-# "$GENSCHEMA" -migrations "0000_v0.1.0.sql" -out "$FROM_MIGRATION"
-
-# # Both outputs are now in the same normalised format: compare them.
-# echo "Comparing..."
-# if diff "$RELEASED_NORM" "$FROM_MIGRATION"; then
-#     echo "OK: 0000_v0.1.0.sql matches the v0.1.0 released schema."
-# else
-#     echo "FAIL: schemas differ. See diff above." >&2
-#     exit 1
-# fi

@@ -176,8 +176,6 @@ func recordApplied(tx *sql.Tx, version int, at time.Time) error {
 // higher than the highest one embedded in this binary, meaning the DB was
 // created by a newer orbit build. In that case the database is not touched.
 //
-// Migrate is intended to replace [Initialize] in Phase 2. For now it lives
-// alongside it and has no callers outside tests.
 func Migrate(db *sql.DB) error {
 	return migrateFrom(db, migrationsFS, "migrations")
 }
@@ -206,7 +204,7 @@ func migrateFrom(db *sql.DB, fsys fs.FS, dir string) error {
 	for v := range applied {
 		if v > maxEmbedded {
 			return fmt.Errorf(
-				"%w: your  data was created using a newer version of the app, and so it cannot read it — please update the app",
+				"%w: your data was created using a newer version of the app, and so it cannot read it — please update the app",
 				ErrSchemaDrift)
 		}
 	}
@@ -252,16 +250,16 @@ func applyOneMigration(db *sql.DB, m migration) error {
 // i.e. it has a non-zero user_version but no schema_migrations table.
 // Such databases are adoptable by Migrate without data loss.
 func IsLegacyDB(db *sql.DB) (bool, error) {
-    var userVersion int32
-    if err := db.QueryRow(`PRAGMA user_version`).Scan(&userVersion); err != nil {
-        return false, err
-    }
-    if userVersion == 0 {
-        return false, nil
-    }
-    var n int
-    if err := db.QueryRow(`SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'`).Scan(&n); err != nil {
-        return false, err
-    }
-    return n == 0, nil
+	var userVersion int32
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&userVersion); err != nil {
+		return false, err
+	}
+	if userVersion == 0 {
+		return false, nil
+	}
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'`).Scan(&n); err != nil {
+		return false, err
+	}
+	return n == 0, nil
 }
