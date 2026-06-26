@@ -23,12 +23,7 @@ jobs:
 
       # Check that the original migration file 0000_v0.1.0.sql matches the canonical v0.1.0 schema.
       - name: Validate 0000_v0.1.0.sql
-        run: |
-          echo "Fetching canonical v0.1.0 schema from git..."
-          RELEASED_RAW="$(mktemp)"
-          trap "rm -f '$RELEASED_RAW'" EXIT
-          git show v0.1.0:internal/db/schema.sql > "$RELEASED_RAW"
-          bash ./scripts/validate_schema.sh 0000 "$RELEASED_RAW"
+        run: bash ./scripts/validate_0000_schema.sh
 
       - name: Vet
         run: go vet ./...
