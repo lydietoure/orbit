@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# create_v0_1_0_app.sh
+# create_v0_1_0_app_data.sh
 #
 # Seeds a v0.1.0 orbit DB with sample data for adoption/upgrade testing.
 #
