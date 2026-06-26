@@ -234,7 +234,10 @@ func TestMigrate_BadMigrationRollsBack(t *testing.T) {
 	}
 
 	// Version 0 was committed before the bad migration ran; version 1 must not be recorded.
-	applied, _ := appliedVersions(db)
+	applied, err := appliedVersions(db)
+	if err != nil {
+		t.Fatalf("appliedVersions: %v", err)
+	}
 	if applied[1] {
 		t.Error("version 1 should not be recorded after a failed migration")
 	}
