@@ -174,7 +174,7 @@ func recordApplied(tx *sql.Tx, version int, at time.Time) error {
 //
 // It returns [ErrSchemaDrift] when the database contains a migration version
 // higher than the highest one embedded in this binary, meaning the DB was
-// created by a newer orbit build. In that case the database is not touched.
+// created by a newer orbit build. In that case no migrations are applied.
 //
 func Migrate(db *sql.DB) error {
 	return migrateFrom(db, migrationsFS, "migrations")
@@ -204,8 +204,9 @@ func migrateFrom(db *sql.DB, fsys fs.FS, dir string) error {
 	for v := range applied {
 		if v > maxEmbedded {
 			return fmt.Errorf(
-				"%w: your data was created using a newer version of the app, and so it cannot read it — please update the app",
+				"%w: database was created by a newer version of orbit; please update orbit to read it",
 				ErrSchemaDrift)
+
 		}
 	}
 
