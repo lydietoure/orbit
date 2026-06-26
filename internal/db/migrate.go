@@ -6,6 +6,7 @@ package db
 // a normalised, comparable representation of whatever is in a DB.
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -156,17 +157,6 @@ func appliedVersions(db *sql.DB) (map[int]bool, error) {
 	return out, rows.Err()
 }
 
-func recordApplied(tx *sql.Tx, version int, at time.Time) error {
-	_, err := tx.Exec(
-		`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
-		version, at.UTC().Format(time.RFC3339),
-	)
-	if err != nil {
-		return fmt.Errorf("record migration %d: %w", version, err)
-	}
-	return nil
-}
-
 // --- Migrate ---
 
 // Migrate applies every pending migration in internal/db/migrations/ to db
@@ -175,7 +165,6 @@ func recordApplied(tx *sql.Tx, version int, at time.Time) error {
 // It returns [ErrSchemaDrift] when the database contains a migration version
 // higher than the highest one embedded in this binary, meaning the DB was
 // created by a newer orbit build. In that case the database is not touched.
-//
 func Migrate(db *sql.DB) error {
 	return migrateFrom(db, migrationsFS, "migrations")
 }
@@ -227,20 +216,36 @@ func migrateFrom(db *sql.DB, fsys fs.FS, dir string) error {
 	return nil
 }
 
-func applyOneMigration(db *sql.DB, m migration) error {
-	tx, err := db.Begin()
+func applyOneMigration(db *sql.DB, m migration) (retErr error) {
+	// Use a single connection so that BEGIN IMMEDIATE and the subsequent
+	// DDL + bookkeeping are all issued on the same SQLite connection.
+	// BEGIN IMMEDIATE acquires the write lock up-front, preventing other
+	// writers from interleaving with DDL mid-migration.
+	conn, err := db.Conn(context.Background())
 	if err != nil {
-		return fmt.Errorf("begin transaction for migration %s: %w", m.filename, err)
+		return fmt.Errorf("acquire connection for migration %s: %w", m.filename, err)
 	}
-	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+	defer conn.Close()
 
-	if _, err := tx.Exec(m.sql); err != nil {
+	if _, err := conn.ExecContext(context.Background(), "BEGIN IMMEDIATE"); err != nil {
+		return fmt.Errorf("begin immediate for migration %s: %w", m.filename, err)
+	}
+	defer func() {
+		if retErr != nil {
+			_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
+		}
+	}()
+
+	if _, err := conn.ExecContext(context.Background(), m.sql); err != nil {
 		return fmt.Errorf("exec migration %s: %w", m.filename, err)
 	}
-	if err := recordApplied(tx, m.version, time.Now()); err != nil {
-		return err
+	if _, err := conn.ExecContext(context.Background(),
+		`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
+		m.version, time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("record migration %d: %w", m.version, err)
 	}
-	if err := tx.Commit(); err != nil {
+	if _, err := conn.ExecContext(context.Background(), "COMMIT"); err != nil {
 		return fmt.Errorf("commit migration %s: %w", m.filename, err)
 	}
 	return nil
