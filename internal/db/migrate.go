@@ -223,22 +223,38 @@ func applyOneMigration(db *sql.DB, m migration) (retErr error) {
 	// DDL + bookkeeping are all issued on the same SQLite connection.
 	// BEGIN IMMEDIATE acquires the write lock up-front, preventing other
 	// writers from interleaving with DDL mid-migration.
-	conn, err := db.Conn(context.Background())
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("acquire connection for migration %s: %w", m.filename, err)
 	}
 	defer conn.Close()
 
-	if _, err := conn.ExecContext(context.Background(), "BEGIN IMMEDIATE"); err != nil {
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("begin immediate for migration %s: %w", m.filename, err)
 	}
 	defer func() {
 		if retErr != nil {
-			_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
+			_, _ = conn.ExecContext(ctx, "ROLLBACK")
 		}
 	}()
 
-	if _, err := conn.ExecContext(context.Background(), m.sql); err != nil {
+	// Another migrator may have committed this version after we computed the
+	// initial applied set; re-check under the write lock to avoid spurious errors.
+	var already int
+	switch err := conn.QueryRowContext(ctx,
+		`SELECT 1 FROM schema_migrations WHERE version = ?`, m.version,
+	).Scan(&already); err {
+	case nil:
+		_, _ = conn.ExecContext(ctx, "ROLLBACK")
+		return nil
+	case sql.ErrNoRows:
+		// proceed
+	default:
+		return fmt.Errorf("check schema_migrations for version %d: %w", m.version, err)
+	}
+
+	if _, err := conn.ExecContext(ctx, m.sql); err != nil {
 		return fmt.Errorf("exec migration %s: %w", m.filename, err)
 	}
 	if _, err := conn.ExecContext(context.Background(),
